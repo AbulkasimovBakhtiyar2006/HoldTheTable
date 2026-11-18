@@ -1,0 +1,22 @@
+Library/
+Temp/
+Logs/
+UserSettings/
+Obj/
+Builds/
+*.csproj
+*.sln
+build*.log
+import.log
+
+# Local tooling, credentials, and editor state
+.utmp/
+.idea/
+*.iml
+.DS_Store
+.env
+.env.*
+*.keystore
+*.jks
+Assets/Resources/DevAgentSettings.asset
+Assets/Resources/DevAgentSettings.asset.meta
