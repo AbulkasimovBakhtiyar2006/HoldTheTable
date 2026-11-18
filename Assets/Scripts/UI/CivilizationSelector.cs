@@ -14,12 +14,12 @@ namespace HoldTheTable
         public event Action<CivilizationDefinition> Selected;
 
         Button[] cards;
-        Outline[] rims;
+
         Image[] cardImages;
         bool built;
 
-        static readonly Color CardNormal = new Color(0.93f, 0.87f, 0.75f, 1f);   // UiKit.Parchment
-        static readonly Color CardSelected = new Color(0.97f, 0.94f, 0.86f, 1f); // UiKit.ParchmentLight
+        static readonly Color CardNormal = new Color(0.985f, 0.973f, 0.945f, 1f); // UiKit.ParchmentLight
+        static readonly Color CardSelected = Color.white;
 
         public void Build(RectTransform area)
         {
@@ -28,54 +28,49 @@ namespace HoldTheTable
             var defs = CivilizationCatalog.All;
             int n = defs.Count;
             cards = new Button[n];
-            rims = new Outline[n];
+            
             cardImages = new Image[n];
 
             float h = area.rect.height > 10f ? area.rect.height : 700f;
             float w = area.rect.width > 10f ? Mathf.Min(area.rect.width, 670f) : 670f;
-            float cardH = Mathf.Min(210f, (h - (n - 1) * 16f) / n);
-            float y0 = (n - 1) * (cardH + 16f) * 0.5f;
+            float cardH = Mathf.Min(210f, (h - (n - 1) * 24f) / n);
+            float y0 = (n - 1) * (cardH + 24f) * 0.5f;
 
             for (int i = 0; i < n; i++)
             {
                 var def = defs[i];
-                var card = UiKit.Button(area, string.Empty, new Vector2(0f, y0 - i * (cardH + 16f)), new Vector2(w, cardH), () => Select(def), 30);
+                var card = UiKit.Button(area, string.Empty, new Vector2(0f, y0 - i * (cardH + 24f)), new Vector2(w, cardH), () => Select(def), 30);
                 var crt = (RectTransform)card.transform;
                 var defaultLabel = card.GetComponentInChildren<TMP_Text>(true);
                 if (defaultLabel != null) defaultLabel.gameObject.SetActive(false);
                 cardImages[i] = (Image)card.targetGraphic;
-                rims[i] = card.GetComponent<Outline>();
-                if (rims[i] != null)
-                {
-                    rims[i].effectColor = UiKit.Gold;
-                    rims[i].effectDistance = new Vector2(2f, -2f);
-                }
+                UiKit.SetSelected(card, false);
 
-                // Recessed dark walnut motif box on the left with antique brass frame
-                float motifW = 132f, motifH = cardH - 24f;
-                float motifX = -w * 0.5f + 16f + motifW * 0.5f;
-                var motifFrame = UiKit.FramedPanel(crt, "MotifFrame", new Vector2(motifX, 0f), new Vector2(motifW, motifH),
-                    UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.Gold, 3f, true);
-                motifFrame.GetComponent<Image>().raycastTarget = false;
-                BuildMotif(motifFrame, def, motifH);
+                // illustration tile on the left: real photo (Resources/CivArt) in a thin gold frame, procedural motif as fallback
+                float motifW = 160f, motifH = cardH - 28f;
+                float motifX = -w * 0.5f + 14f + motifW * 0.5f;
+                var tex = LoadArt(def);
+                var tile = UiKit.Panel(crt, new Vector2(motifX, 0f), new Vector2(motifW, motifH), tex != null ? UiKit.Gold : UiKit.DarkPanel);
+                tile.name = "MotifTile";
+                tile.GetComponent<Image>().raycastTarget = false;
+                if (tex != null) BuildPhoto(tile, tex, def, motifW - 6f, motifH - 6f);
+                else BuildMotif(tile, def, motifH);
 
-                // Vertical ornamental divider rule
-                float divX = motifX + motifW * 0.5f + 12f;
-                var vRule = UiKit.Panel(crt, new Vector2(divX, 0f), new Vector2(2f, cardH - 30f), UiKit.BronzeShadow);
-                vRule.GetComponent<Image>().raycastTarget = false;
+                float textLeft = motifX + motifW * 0.5f + 22f;
+                float textW = w * 0.5f - 20f - textLeft;
+                float textX = textLeft + textW * 0.5f;
 
-                float textX = divX + 16f + (w * 0.5f - 24f - (divX + 16f)) * 0.5f;
-                float textW = w * 0.5f - 26f - (divX + 16f);
-
-                var name = UiKit.Label(crt, def.DisplayName, new Vector2(textX, cardH * 0.22f), new Vector2(textW, 50f), 38, TextAlignmentOptions.Left);
-                name.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+                var name = UiKit.Label(crt, def.DisplayName, new Vector2(textX, cardH * 0.20f), new Vector2(textW, 46f), UiKit.FontHeading - 4, TextAlignmentOptions.Left);
+                name.fontStyle = FontStyles.Bold;
                 name.color = UiKit.Ink;
-                var desc = UiKit.Label(crt, def.Description, new Vector2(textX, -cardH * 0.16f), new Vector2(textW, cardH * 0.54f), 24, TextAlignmentOptions.TopLeft);
+                name.enableAutoSizing = true; name.fontSizeMin = 24; name.fontSizeMax = UiKit.FontHeading - 4;
+                name.textWrappingMode = TextWrappingModes.NoWrap;
+                var desc = UiKit.Label(crt, def.Description, new Vector2(textX, -cardH * 0.17f), new Vector2(textW, cardH * 0.50f), UiKit.FontCaption, TextAlignmentOptions.TopLeft);
                 desc.color = UiKit.InkMuted;
 
-                // Right edge heraldic ribbon
-                var stripe = UiKit.Panel(crt, new Vector2(w * 0.5f - 8f, 0f), new Vector2(8f, cardH - 16f), def.primary);
-                stripe.GetComponent<Image>().raycastTarget = false;
+                // civ colour dot (replaces the old edge ribbon)
+                var dot = UiKit.Panel(crt, new Vector2(w * 0.5f - 30f, cardH * 0.5f - 30f), new Vector2(20f, 20f), def.primary);
+                dot.GetComponent<Image>().raycastTarget = false;
                 cards[i] = card;
             }
             Refresh();
@@ -99,12 +94,44 @@ namespace HoldTheTable
             {
                 bool on = defs[i].id == cur;
                 cardImages[i].color = on ? CardSelected : CardNormal;
-                if (rims[i] != null)
-                {
-                    rims[i].effectColor = on ? UiKit.GoldBright : UiKit.Gold;
-                    rims[i].effectDistance = on ? new Vector2(3f, -3f) : new Vector2(1.5f, -1.5f);
-                }
+                UiKit.SetSelected(cards[i], on);
             }
+        }
+
+        static Texture2D LoadArt(CivilizationDefinition def)
+        {
+            string key;
+            switch (def.style)
+            {
+                case ArchitectureStyle.TieredRoofs: key = "celestial"; break;
+                case ArchitectureStyle.Timber: key = "verdant"; break;
+                default: key = "iron"; break;
+            }
+            try { return Resources.Load<Texture2D>("CivArt/" + key); }
+            catch (Exception) { return null; }
+        }
+
+        /// <summary>Photo cropped (cover-fit via uvRect) to the frame, inset inside the gold border.</summary>
+        static void BuildPhoto(RectTransform frame, Texture2D tex, CivilizationDefinition def, float w, float h)
+        {
+            var go = new GameObject("Photo", typeof(RectTransform));
+            go.layer = frame.gameObject.layer;
+            var rt = (RectTransform)go.transform;
+            rt.SetParent(frame, false);
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.anchoredPosition = Vector2.zero;
+            rt.sizeDelta = new Vector2(w, h);
+            float frameAspect = w / h, texAspect = (float)tex.width / tex.height;
+            float uw = 1f, uh = 1f;
+            if (texAspect > frameAspect) uw = frameAspect / texAspect; else uh = texAspect / frameAspect;
+            float fx = def.style == ArchitectureStyle.TieredRoofs || def.style == ArchitectureStyle.Timber ? 0.5f : 0.72f; // keep the castle in frame
+            float fy = def.style == ArchitectureStyle.Timber ? 0.55f : (def.style == ArchitectureStyle.TieredRoofs ? 0.45f : 0.5f);
+            float ux = Mathf.Clamp01(fx - uw * 0.5f); ux = Mathf.Min(ux, 1f - uw);
+            float uy = Mathf.Clamp01(fy - uh * 0.5f); uy = Mathf.Min(uy, 1f - uh);
+            var raw = go.AddComponent<RawImage>();
+            raw.texture = tex;
+            raw.uvRect = new Rect(ux, uy, uw, uh);
+            raw.raycastTarget = false;
         }
 
         /// <summary>Detailed heraldic architectural crest: tiered pagoda eaves, timber great-hall, or battlemented keep.</summary>

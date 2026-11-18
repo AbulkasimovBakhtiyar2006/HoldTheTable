@@ -37,6 +37,9 @@ namespace HoldTheTable
         public bool IsOpen { get; private set; }
         public int PageIndex => page;
 
+        // page indices: 0-3 = setup pages (dots), then start / settings / end pages
+        const int PageCiv = 0, PageName = 1, PageBanner = 2, PageFound = 3, PageStart = 4, PageSettings = 5, PageEnd = 6, PageCount = 7, SetupPageCount = 4;
+
         const float ParchW = 0.43f;
         const float ParchH = 0.53f;
 
@@ -47,9 +50,15 @@ namespace HoldTheTable
         CanvasGroup pagesGroup;
         RectTransform[] pages;
         Button backButton, nextButton, foundButton, newEmpireButton;
-        TMP_Text nameDisplay, summaryName, summaryCiv, foundedHint, stepIndicator;
+        TMP_Text nameDisplay, summaryName, summaryCiv, foundedHint;
+        Image[] stepDots;
         RawImage summaryBanner;
         Texture2D summaryTex;
+        Button startButton, settingsButton, rightHandButton, leftHandButton, endRestartButton, endEndlessButton, endNewEmpireButton;
+        TMP_Text endTitle, endScoreText, endWaveText;
+        bool launchMenu = true;   // first launch: show the start page until the player presses Start Game
+        bool endActive, endEndlessOffered;
+        bool settingsSubscribed;
         int page;
         bool built, placed, founded, subscribed;
         Coroutine anim;
@@ -60,6 +69,7 @@ namespace HoldTheTable
             if (canvas == null) canvas = GetComponentInChildren<Canvas>(true);
             BuildVisuals();
             BuildUi();
+            BuildRolledIcon();
             SetVisible(false, true);
         }
 
@@ -73,8 +83,19 @@ namespace HoldTheTable
             }
         }
 
+        void OnEnable()
+        {
+            if (!settingsSubscribed) { GameSettings.Changed += RefreshSettingsButtons; settingsSubscribed = true; }
+        }
+
+        void OnDisable()
+        {
+            if (settingsSubscribed) { GameSettings.Changed -= RefreshSettingsButtons; settingsSubscribed = false; }
+        }
+
         void OnDestroy()
         {
+            if (settingsSubscribed) { GameSettings.Changed -= RefreshSettingsButtons; settingsSubscribed = false; }
             if (subscribed && GameDirector.Instance != null) GameDirector.Instance.PhaseChanged -= OnPhaseChanged;
             if (Instance == this) Instance = null;
         }
@@ -89,6 +110,62 @@ namespace HoldTheTable
         void Update()
         {
             if (!subscribed) TrySubscribe();
+            UpdateRolledIcon();
+        }
+
+        // ------------------------------------------------------------------ rolled-up scroll (collapsed state)
+
+        Transform rolledIcon;
+        float iconCooldown;
+        const float IconTouchRadius = 0.07f;
+
+        void BuildRolledIcon()
+        {
+            var root = new GameObject("RolledScrollIcon").transform;
+            root.SetParent(transform, false);
+            root.localPosition = Vector3.zero;
+            Vector3 ls = transform.lossyScale;
+            root.localScale = new Vector3(1f / Mathf.Max(1e-4f, ls.x), 1f / Mathf.Max(1e-4f, ls.y), 1f / Mathf.Max(1e-4f, ls.z));
+            Color wood = new Color(0.40f, 0.22f, 0.09f);
+            Color gold = new Color(0.90f, 0.70f, 0.25f);
+            Color paper = new Color(0.98f, 0.90f, 0.68f);
+            Prim(PrimitiveType.Cylinder, "Paper", root, Vector3.zero, new Vector3(0.05f, 0.07f, 0.05f), Quaternion.Euler(0f, 0f, 90f), paper);
+            Prim(PrimitiveType.Cylinder, "Rod", root, Vector3.zero, new Vector3(0.018f, 0.09f, 0.018f), Quaternion.Euler(0f, 0f, 90f), wood);
+            Prim(PrimitiveType.Sphere, "CapL", root, new Vector3(-0.092f, 0f, 0f), Vector3.one * 0.03f, Quaternion.identity, gold);
+            Prim(PrimitiveType.Sphere, "CapR", root, new Vector3(0.092f, 0f, 0f), Vector3.one * 0.03f, Quaternion.identity, gold);
+            Prim(PrimitiveType.Cylinder, "Seal", root, new Vector3(0f, 0f, -0.026f), new Vector3(0.022f, 0.003f, 0.022f), Quaternion.Euler(90f, 0f, 0f), new Color(0.62f, 0.06f, 0.07f));
+            rolledIcon = root;
+            root.gameObject.SetActive(false);
+        }
+
+        // Closed scroll = small rolled scroll floating where the scroll was; touch it with a fingertip to unroll again.
+        void UpdateRolledIcon()
+        {
+            if (rolledIcon == null) return;
+            bool show = built && !IsOpen && anim == null;
+            if (rolledIcon.gameObject.activeSelf != show) rolledIcon.gameObject.SetActive(show);
+            if (!show) return;
+            Vector3 p = transform.position + Vector3.up * (0.02f * Mathf.Sin(Time.unscaledTime * 2f));
+            rolledIcon.position = p;
+            var cam = Camera.main;
+            if (cam != null)
+            {
+                Vector3 d = p - cam.transform.position; d.y = 0f;
+                if (d.sqrMagnitude > 1e-4f) rolledIcon.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
+            }
+            if (iconCooldown > 0f) { iconCooldown -= Time.unscaledDeltaTime; return; }
+            var hr = HandRig.Instance;
+            if (hr == null) return;
+            for (int h = 0; h < 2; h++)
+            {
+                var side = h == 0 ? HandSide.Left : HandSide.Right;
+                if (hr.TryGetIndexTip(side, out var tip) && (tip - p).sqrMagnitude < IconTouchRadius * IconTouchRadius)
+                {
+                    iconCooldown = 0.8f;
+                    Open();
+                    return;
+                }
+            }
         }
 
         void OnPhaseChanged(GamePhase p)
@@ -96,11 +173,13 @@ namespace HoldTheTable
             if (p == GamePhase.CivilizationSetup)
             {
                 founded = false;
+                endActive = false;
                 Open();
             }
             else if (p == GamePhase.HeadquartersPlacement || p == GamePhase.BuildPhase)
             {
-                if (!founded) { founded = true; ShowPage(3); }
+                if (endActive) HideEnd();
+                if (!founded) { founded = true; ShowPage(PageFound); }
                 RefreshFoundedState();
             }
         }
@@ -117,7 +196,9 @@ namespace HoldTheTable
             // load saved profile values into every page
             if (keyboard != null) keyboard.SetText(CivilizationProfile.Current.empireName);
             if (civilizationSelector != null) civilizationSelector.Refresh();
-            ShowPage(founded ? 3 : 0);
+            int target = endActive ? PageEnd : (founded ? PageFound : (launchMenu ? PageStart : PageCiv));
+            bool keepMenu = IsOpen && !endActive && !founded && launchMenu && (page == PageStart || page == PageSettings);
+            if (!keepMenu) ShowPage(target);
             if (IsOpen) return; // already unfurled (e.g. GameDirector.Start + PhaseChanged): just reset the page
             SetVisible(true, false);
             IsOpen = true;
@@ -135,6 +216,81 @@ namespace HoldTheTable
             if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.ScrollUnfurl, transform.position);
             if (isActiveAndEnabled) anim = StartCoroutine(Unfurl(false));
             else SetVisible(false, true);
+        }
+
+        /// <summary>Victory/Defeat result on the END page; unfurls the scroll near the player. Called by EndScreen.</summary>
+        public void ShowEnd(bool victory, string title, string scoreLine, string waveLine, bool offerEndless)
+        {
+            endActive = true;
+            endEndlessOffered = offerEndless;
+            if (endTitle != null)
+            {
+                endTitle.text = title;
+                endTitle.color = victory ? new Color(0.55f, 0.38f, 0.05f) : new Color(0.55f, 0.10f, 0.08f);
+            }
+            if (endScoreText != null) endScoreText.text = scoreLine;
+            if (endWaveText != null) endWaveText.text = waveLine;
+            LayoutEndButtons();
+            Open();
+        }
+
+        /// <summary>Leaves the END page (restart / endless / new empire / reset) and rolls the scroll up.</summary>
+        public void HideEnd()
+        {
+            bool wasEnd = endActive;
+            endActive = false;
+            if (!wasEnd && page != PageEnd) return;
+            if (page == PageEnd) ShowPage(founded ? PageFound : PageCiv);
+            Close();
+        }
+
+        void LayoutEndButtons()
+        {
+            if (endRestartButton == null) return;
+            endRestartButton.interactable = true;
+            endEndlessButton.interactable = true;
+            endNewEmpireButton.interactable = true;
+            var rr = (RectTransform)endRestartButton.transform;
+            var er = (RectTransform)endEndlessButton.transform;
+            if (endEndlessOffered)
+            {
+                rr.anchoredPosition = new Vector2(-175f, -90f); rr.sizeDelta = new Vector2(330f, 100f);
+                er.anchoredPosition = new Vector2(175f, -90f); er.sizeDelta = new Vector2(330f, 100f);
+                endEndlessButton.gameObject.SetActive(true);
+            }
+            else
+            {
+                rr.anchoredPosition = new Vector2(0f, -90f); rr.sizeDelta = new Vector2(420f, 100f);
+                endEndlessButton.gameObject.SetActive(false);
+            }
+        }
+
+        void OnEndRestart()
+        {
+            endRestartButton.interactable = false; // no double restart from a lingering poke
+            endEndlessButton.interactable = false;
+            endNewEmpireButton.interactable = false;
+            if (EndScreen.Instance != null) EndScreen.Instance.RequestRestart();
+            else { HideEnd(); if (GameDirector.Instance != null) GameDirector.Instance.Restart(); }
+        }
+
+        void OnEndEndless()
+        {
+            endRestartButton.interactable = false;
+            endEndlessButton.interactable = false;
+            endNewEmpireButton.interactable = false;
+            if (EndScreen.Instance != null) EndScreen.Instance.RequestEndlessSiege();
+        }
+
+        void OnEndNewEmpire()
+        {
+            endRestartButton.interactable = false;
+            endEndlessButton.interactable = false;
+            endNewEmpireButton.interactable = false;
+            founded = false;
+            if (EndScreen.Instance != null) EndScreen.Instance.RequestNewEmpire();
+            else { HideEnd(); if (GameDirector.Instance != null) GameDirector.Instance.NewEmpire(); }
+            if (!IsOpen || page != PageCiv) Open();
         }
 
         // ------------------------------------------------------------------ placement
@@ -187,33 +343,13 @@ namespace HoldTheTable
             seal = new GameObject("WaxSeal").transform;
             seal.SetParent(rollerBottom, false);
             seal.localPosition = new Vector3(0.12f, -0.05f, -0.012f);
-            var ribbon = Prim(PrimitiveType.Cube, "Ribbon", seal, new Vector3(0f, 0.028f, 0.004f), new Vector3(0.014f, 0.052f, 0.002f), Quaternion.identity, new Color(0.68f, 0.10f, 0.08f));
-            ribbon.name = "Ribbon";
-            Prim(PrimitiveType.Cylinder, "SealDisc", seal, Vector3.zero, new Vector3(0.052f, 0.004f, 0.052f), Quaternion.Euler(90f, 0f, 0f), wax);
-            // 8 outer wax squish flutes around perimeter
-            for (int f = 0; f < 8; f++)
-            {
-                float ang = f * (360f / 8f) * Mathf.Deg2Rad;
-                float fx = Mathf.Cos(ang) * 0.024f;
-                float fy = Mathf.Sin(ang) * 0.024f;
-                Prim(PrimitiveType.Sphere, "WaxFlute_" + f, seal, new Vector3(fx, fy, -0.001f), new Vector3(0.012f, 0.012f, 0.005f), Quaternion.identity, wax);
-            }
-            // recessed inner stamp disc
-            Prim(PrimitiveType.Cylinder, "SealEmboss", seal, new Vector3(0f, 0f, -0.0035f), new Vector3(0.036f, 0.002f, 0.036f), Quaternion.Euler(90f, 0f, 0f), new Color(0.44f, 0.04f, 0.04f));
-            // concentric relief ring
-            Prim(PrimitiveType.Cylinder, "SealInnerRing", seal, new Vector3(0f, 0f, -0.0045f), new Vector3(0.026f, 0.0015f, 0.026f), Quaternion.Euler(90f, 0f, 0f), new Color(0.68f, 0.11f, 0.09f));
-            // center imperial crown / fleur relief
-            Prim(PrimitiveType.Cube, "CrownBase", seal, new Vector3(0f, -0.004f, -0.0055f), new Vector3(0.015f, 0.0035f, 0.002f), Quaternion.identity, gold);
-            Prim(PrimitiveType.Cube, "CrownPeakM", seal, new Vector3(0f, 0.002f, -0.0055f), new Vector3(0.004f, 0.010f, 0.002f), Quaternion.identity, gold);
-            Prim(PrimitiveType.Cube, "CrownPeakL", seal, new Vector3(-0.0055f, 0.001f, -0.0055f), new Vector3(0.0035f, 0.007f, 0.002f), Quaternion.Euler(0f, 0f, 15f), gold);
-            Prim(PrimitiveType.Cube, "CrownPeakR", seal, new Vector3(0.0055f, 0.001f, -0.0055f), new Vector3(0.0035f, 0.007f, 0.002f), Quaternion.Euler(0f, 0f, -15f), gold);
+            Prim(PrimitiveType.Cylinder, "SealDisc", seal, Vector3.zero, new Vector3(0.050f, 0.004f, 0.050f), Quaternion.Euler(90f, 0f, 0f), wax);
+            Prim(PrimitiveType.Cylinder, "SealInner", seal, new Vector3(0f, 0f, -0.003f), new Vector3(0.034f, 0.002f, 0.034f), Quaternion.Euler(90f, 0f, 0f), new Color(0.50f, 0.05f, 0.06f));
 
             // town hall token socket: small gold pedestal to the side of the scroll
             tokenSocket = new GameObject("TokenSocket").transform;
             tokenSocket.SetParent(holder, false);
             tokenSocket.localPosition = new Vector3(ParchW * 0.5f + 0.075f, -0.17f, -0.03f);
-            Prim(PrimitiveType.Cylinder, "SocketPedestal", tokenSocket, new Vector3(0f, -0.006f, 0f), new Vector3(0.07f, 0.004f, 0.07f), Quaternion.identity, gold);
-            Prim(PrimitiveType.Cylinder, "SocketArm", tokenSocket, new Vector3(-0.045f, -0.006f, 0.015f), new Vector3(0.008f, 0.03f, 0.008f), Quaternion.Euler(0f, 0f, 90f), wood);
 
             SetRollerSpread(1f);
             if (grabHandle != null)
@@ -244,7 +380,7 @@ namespace HoldTheTable
             var go = GameObject.CreatePrimitive(type);
             go.name = name;
             var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (col != null) DestroyImmediate(col);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = lp;
             go.transform.localRotation = lr;
@@ -301,7 +437,7 @@ namespace HoldTheTable
             const int W = 512, H = 640;
             var tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { name = "ParchmentTex", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[W * H];
-            Color paper = new Color(0.95f, 0.90f, 0.77f), edge = new Color(0.70f, 0.54f, 0.33f), gold = new Color(0.80f, 0.63f, 0.25f);
+            Color paper = new Color(0.945f, 0.918f, 0.855f), edge = new Color(0.80f, 0.74f, 0.62f), gold = new Color(0.72f, 0.60f, 0.36f);
             uint seed = 99991u;
             for (int y = 0; y < H; y++)
             {
@@ -309,25 +445,17 @@ namespace HoldTheTable
                 {
                     float u = x / (float)(W - 1), t = y / (float)(H - 1);
                     float dx = Mathf.Min(u, 1f - u), dy = Mathf.Min(t, 1f - t);
-                    float vign = Mathf.Clamp01(Mathf.Min(dx * 8f, dy * 10f));
+                    float vign = Mathf.Clamp01(Mathf.Min(dx * 14f, dy * 16f));
                     seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
                     float n = ((seed & 0xFF) / 255f - 0.5f) * 0.04f;
-                    float fiber = Mathf.Sin(t * 320f + Mathf.Sin(u * 28f) * 4f) * 0.010f;
+                    float fiber = 0f;
                     Color c = Color.Lerp(edge, paper, Mathf.SmoothStep(0f, 1f, vign));
                     c.r += n + fiber; c.g += n + fiber; c.b += n * 0.6f;
 
-                    // double gold ornament border with corner flourishes
+                    // single hairline inset border, nothing else
                     float bx = Mathf.Min(x, W - 1 - x), by = Mathf.Min(y, H - 1 - y);
-                    float b = Mathf.Min(bx, by);
-                    bool line1 = b >= 16 && b < 22;
-                    bool line2 = b >= 32 && b < 36;
-                    // corner diamonds + mid-edge rhombi
-                    bool cornerGem = bx < 60 && by < 60 && Mathf.Abs(bx - 26f) + Mathf.Abs(by - 26f) < 18f;
-                    bool midTop = by < 46 && Mathf.Abs(x - W * 0.5f) + Mathf.Abs(by - 26f) < 20f;
-                    bool midSide = bx < 46 && Mathf.Abs(y - H * 0.5f) + Mathf.Abs(bx - 26f) < 20f;
-                    if (line1 || line2 || cornerGem || midTop || midSide) c = Color.Lerp(c, gold, 0.92f);
-                    // scalloped wave pattern between border lines
-                    if (b >= 22 && b < 32 && Mathf.Sin((bx < by ? y : x) * 0.25f) > 0.45f) c = Color.Lerp(c, gold, 0.60f);
+                    float bd = Mathf.Min(bx, by);
+                    if (bd >= 14 && bd < 16) c = Color.Lerp(c, gold, 0.55f);
                     c.a = 1f;
                     px[y * W + x] = c;
                 }
@@ -402,20 +530,16 @@ namespace HoldTheTable
             pagesRoot = UiKit.Rect(root, "ScrollPages", Vector2.zero, new Vector2(800f, 1000f));
             pagesGroup = pagesRoot.gameObject.AddComponent<CanvasGroup>();
 
-            // illuminated title band with royal rubrication and decorative gold rule
-            var title = UiKit.Label(pagesRoot, Strings.Title, new Vector2(0f, 455f), new Vector2(680f, 60f), 42);
-            title.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
-            title.color = UiKit.RubricCrimson;
-            var sub = UiKit.Label(pagesRoot, Strings.Subtitle, new Vector2(0f, 412f), new Vector2(680f, 34f), 22);
-            sub.fontStyle = FontStyles.Italic;
+            // header: title + subtitle + hairline
+            var title = UiKit.Label(pagesRoot, Strings.Title, new Vector2(-110f, 450f), new Vector2(460f, 64f), UiKit.FontTitle, TextAlignmentOptions.Left);
+            title.fontStyle = FontStyles.Bold;
+            title.color = UiKit.Ink;
+            var sub = UiKit.Label(pagesRoot, Strings.Subtitle, new Vector2(-110f, 408f), new Vector2(460f, 34f), 22, TextAlignmentOptions.Left);
             sub.color = UiKit.InkMuted;
-            var rule = UiKit.Panel(pagesRoot, new Vector2(0f, 390f), new Vector2(620f, 2.5f), UiKit.Gold);
+            var rule = UiKit.Panel(pagesRoot, new Vector2(0f, 380f), new Vector2(680f, 2f), UiKit.ParchmentEdge);
             rule.GetComponent<Image>().raycastTarget = false;
-            var centerGem = UiKit.Panel(pagesRoot, new Vector2(0f, 390f), new Vector2(10f, 10f), UiKit.RubricCrimson);
-            centerGem.GetComponent<Image>().raycastTarget = false;
-            centerGem.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
-            pages = new RectTransform[4];
+            pages = new RectTransform[PageCount];
             for (int i = 0; i < pages.Length; i++)
             {
                 pages[i] = UiKit.Rect(pagesRoot, "Page" + (i + 1), new Vector2(0f, -15f), new Vector2(680f, 790f));
@@ -425,19 +549,113 @@ namespace HoldTheTable
             BuildNamePage(pages[1]);
             BuildBannerPage(pages[2]);
             BuildFoundPage(pages[3]);
+            BuildStartPage(pages[PageStart]);
+            BuildSettingsPage(pages[PageSettings]);
+            BuildEndPage(pages[PageEnd]);
 
-            backButton = UiKit.Button(pagesRoot, Strings.Back, new Vector2(-230f, -430f), new Vector2(190f, 72f), () => ShowPage(page - 1), 32);
-            nextButton = UiKit.Button(pagesRoot, Strings.Next, new Vector2(230f, -430f), new Vector2(190f, 72f), OnNext, 32);
-            stepIndicator = UiKit.Label(pagesRoot, "I · II · III · IV", new Vector2(0f, -430f), new Vector2(200f, 40f), 24);
-            stepIndicator.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            backButton = UiKit.Button(pagesRoot, Strings.Back, new Vector2(-230f, -430f), new Vector2(200f, 76f), OnBack, 32);
+            UiKit.StyleSecondary(backButton);
+            nextButton = UiKit.Button(pagesRoot, Strings.Next, new Vector2(230f, -430f), new Vector2(200f, 76f), OnNext, 32);
+            var rollUp = UiKit.Button(pagesRoot, Strings.RollUp, new Vector2(270f, 446f), new Vector2(140f, 56f), Close, 24);
+            UiKit.StyleSecondary(rollUp);
+            stepDots = new Image[SetupPageCount];
+            for (int d = 0; d < SetupPageCount; d++)
+            {
+                var dot = UiKit.Panel(pagesRoot, new Vector2((d - 1.5f) * 34f, -430f), new Vector2(18f, 18f), UiKit.ParchmentShade);
+                dot.name = "StepDot" + d;
+                dot.GetComponent<Image>().raycastTarget = false;
+                stepDots[d] = dot.GetComponent<Image>();
+            }
 
-            ShowPage(0);
+            ShowPage(PageStart);
+        }
+
+        void BuildStartPage(RectTransform p)
+        {
+            var intro = UiKit.Label(p, Strings.StartIntro, new Vector2(0f, 250f), new Vector2(600f, 130f), UiKit.FontBody);
+            intro.color = UiKit.InkMuted;
+            startButton = UiKit.Button(p, Strings.StartGame, new Vector2(0f, 60f), new Vector2(560f, 150f), OnStartGame, 56);
+            UiKit.SetButtonColor(startButton, UiKit.ButtonColor);
+            settingsButton = UiKit.Button(p, Strings.Settings, new Vector2(0f, -140f), new Vector2(420f, 100f), () => ShowPage(PageSettings), 40);
+            UiKit.StyleSecondary(settingsButton);
+        }
+
+        void OnStartGame()
+        {
+            launchMenu = false;
+            ShowPage(PageCiv);
+        }
+
+        void BuildSettingsPage(RectTransform p)
+        {
+            var h = UiKit.Label(p, Strings.Settings, new Vector2(0f, 360f), new Vector2(680f, 56f), UiKit.FontHeading, TextAlignmentOptions.Left);
+            h.fontStyle = FontStyles.Bold;
+            h.color = UiKit.Ink;
+            var sub = UiKit.Label(p, Strings.MenuHand, new Vector2(0f, 270f), new Vector2(680f, 48f), UiKit.FontHeading - 4, TextAlignmentOptions.Left);
+            sub.color = UiKit.InkMuted;
+            rightHandButton = UiKit.Button(p, Strings.RightHanded, new Vector2(-175f, 140f), new Vector2(330f, 130f), () => GameSettings.MenuHand = HandSide.Right, 38);
+            leftHandButton = UiKit.Button(p, Strings.LeftHanded, new Vector2(175f, 140f), new Vector2(330f, 130f), () => GameSettings.MenuHand = HandSide.Left, 38);
+            var hint = UiKit.Label(p, Strings.MenuHandHint, new Vector2(0f, -20f), new Vector2(640f, 170f), UiKit.FontBody);
+            hint.color = UiKit.Ink;
+            RefreshSettingsButtons();
+        }
+
+        void RefreshSettingsButtons()
+        {
+            if (rightHandButton == null || leftHandButton == null) return;
+            bool right = GameSettings.MenuHand == HandSide.Right;
+            StyleToggle(rightHandButton, right);
+            StyleToggle(leftHandButton, !right);
+        }
+
+        static void StyleToggle(Button b, bool on)
+        {
+            UiKit.SetButtonColor(b, on ? UiKit.ConfirmGreen : UiKit.ParchmentShade);
+            var t = b.GetComponentInChildren<TMP_Text>(true);
+            if (t != null) t.color = on ? UiKit.ButtonText : UiKit.Ink;
+            UiKit.SetSelected(b, on, UiKit.GoldBright);
+        }
+
+        void BuildEndPage(RectTransform p)
+        {
+            endTitle = UiKit.Label(p, string.Empty, new Vector2(0f, 270f), new Vector2(680f, 110f), UiKit.FontDisplay + 12);
+            endTitle.fontStyle = FontStyles.Bold;
+            endTitle.enableAutoSizing = true; endTitle.fontSizeMin = 36; endTitle.fontSizeMax = UiKit.FontDisplay + 12;
+            var plaque = UiKit.FramedPanel(p, "StatsPlaque", new Vector2(0f, 110f), new Vector2(640f, 150f),
+                UiKit.ParchmentEdge, UiKit.ParchmentLight, UiKit.ParchmentEdge, 3f);
+            plaque.GetComponent<Image>().raycastTarget = false;
+            endScoreText = UiKit.Label(plaque, string.Empty, new Vector2(0f, 30f), new Vector2(610f, 56f), UiKit.FontHeading - 2);
+            endScoreText.fontStyle = FontStyles.Bold;
+            endScoreText.enableAutoSizing = true; endScoreText.fontSizeMin = 20; endScoreText.fontSizeMax = UiKit.FontHeading - 2;
+            endWaveText = UiKit.Label(plaque, string.Empty, new Vector2(0f, -32f), new Vector2(610f, 56f), UiKit.FontCaption - 2);
+            endWaveText.color = UiKit.InkMuted;
+            endWaveText.enableAutoSizing = true; endWaveText.fontSizeMin = 16; endWaveText.fontSizeMax = UiKit.FontCaption - 2;
+
+            endRestartButton = UiKit.Button(p, Strings.Restart, new Vector2(0f, -90f), new Vector2(420f, 100f), OnEndRestart, 38);
+            UiKit.SetButtonColor(endRestartButton, UiKit.ButtonColor);
+            endEndlessButton = UiKit.Button(p, Strings.EndlessSiege, new Vector2(175f, -90f), new Vector2(330f, 100f), OnEndEndless, 32);
+            UiKit.SetButtonColor(endEndlessButton, UiKit.ConfirmGreen);
+            endEndlessButton.gameObject.SetActive(false);
+            endNewEmpireButton = UiKit.Button(p, Strings.NewEmpire, new Vector2(0f, -220f), new Vector2(360f, 84f), OnEndNewEmpire, 34);
+            UiKit.StyleSecondary(endNewEmpireButton);
+        }
+
+        void OnBack()
+        {
+            switch (page)
+            {
+                case PageCiv: ShowPage(PageStart); break;
+                case PageSettings: ShowPage(PageStart); break;
+                case PageName: ShowPage(PageCiv); break;
+                case PageBanner: ShowPage(PageName); break;
+                case PageFound: ShowPage(PageBanner); break;
+            }
         }
 
         void BuildCivPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.ChooseCivilization, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
-            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            var h = UiKit.Label(p, Strings.ChooseCivilization, new Vector2(0f, 360f), new Vector2(680f, 56f), UiKit.FontHeading, TextAlignmentOptions.Left);
+            h.fontStyle = FontStyles.Bold;
             h.color = UiKit.Ink;
             var area = UiKit.Rect(p, "CivCards", new Vector2(0f, -30f), new Vector2(680f, 700f));
             if (civilizationSelector == null) civilizationSelector = area.gameObject.AddComponent<CivilizationSelector>();
@@ -446,12 +664,12 @@ namespace HoldTheTable
 
         void BuildNamePage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.NameYourEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
-            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            var h = UiKit.Label(p, Strings.NameYourEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), UiKit.FontHeading, TextAlignmentOptions.Left);
+            h.fontStyle = FontStyles.Bold;
             h.color = UiKit.Ink;
 
             var field = UiKit.FramedPanel(p, "NameField", new Vector2(0f, 250f), new Vector2(680f, 100f),
-                UiKit.WalnutFrame, UiKit.ParchmentLight, UiKit.Gold, 4f, true);
+                UiKit.ParchmentEdge, UiKit.ParchmentLight, UiKit.ParchmentEdge, 3f);
             nameDisplay = UiKit.Label(field, string.Empty, Vector2.zero, new Vector2(640f, 90f), 48);
             nameDisplay.textWrappingMode = TextWrappingModes.NoWrap;
             nameDisplay.overflowMode = TextOverflowModes.Overflow;
@@ -468,7 +686,7 @@ namespace HoldTheTable
             keyboard.Confirmed += () => { CommitName(); ShowPage(2); };
 
             // Meta system keyboard replaces the scroll keyboard on device (scroll keyboard stays as editor/unsupported fallback)
-            useSystemKeyboard = SystemKeyboardInput.Available;
+            useSystemKeyboard = false; // user: always use the built-in scroll keyboard, not the Meta system keyboard
             if (useSystemKeyboard)
             {
                 systemKeyboard = gameObject.AddComponent<SystemKeyboardInput>();
@@ -491,8 +709,8 @@ namespace HoldTheTable
 
         void BuildBannerPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.BannerTitle, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
-            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            var h = UiKit.Label(p, Strings.BannerTitle, new Vector2(0f, 360f), new Vector2(680f, 56f), UiKit.FontHeading, TextAlignmentOptions.Left);
+            h.fontStyle = FontStyles.Bold;
             h.color = UiKit.Ink;
             var panel = UiKit.Rect(p, "BannerPanel", new Vector2(0f, -35f), new Vector2(680f, 700f));
             bannerPanel = panel;
@@ -508,38 +726,30 @@ namespace HoldTheTable
 
         void BuildFoundPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.FoundEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
-            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            var h = UiKit.Label(p, Strings.FoundEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), UiKit.FontHeading, TextAlignmentOptions.Left);
+            h.fontStyle = FontStyles.Bold;
             h.color = UiKit.Ink;
 
-            summaryName = UiKit.Label(p, string.Empty, new Vector2(0f, 285f), new Vector2(680f, 66f), 50);
-            summaryName.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            summaryName = UiKit.Label(p, string.Empty, new Vector2(0f, 290f), new Vector2(680f, 64f), UiKit.FontDisplay - 6);
+            summaryName.fontStyle = FontStyles.Bold;
             summaryName.color = UiKit.RubricCrimson;
-            summaryCiv = UiKit.Label(p, string.Empty, new Vector2(0f, 230f), new Vector2(680f, 40f), 26);
-            summaryCiv.fontStyle = FontStyles.Italic;
+            summaryName.enableAutoSizing = true; summaryName.fontSizeMin = 28; summaryName.fontSizeMax = UiKit.FontDisplay - 6;
+            summaryName.textWrappingMode = TextWrappingModes.NoWrap;
+            summaryCiv = UiKit.Label(p, string.Empty, new Vector2(0f, 236f), new Vector2(680f, 40f), UiKit.FontCaption + 2);
             summaryCiv.color = UiKit.InkMuted;
 
-            // Framed heraldic standard display with carved walnut backing and antique brass crossbar & finials
-            var backing = UiKit.FramedPanel(p, "StandardBacking", new Vector2(0f, 50f), new Vector2(376f, 260f),
-                UiKit.WalnutFrame, UiKit.ParchmentShade, UiKit.Gold, 4f, true);
-
-            var bar = UiKit.Panel(p, new Vector2(0f, 175f), new Vector2(364f, 10f), UiKit.WalnutFrame);
-            bar.name = "Crossbar";
-            bar.GetComponent<Image>().raycastTarget = false;
-            var finL = UiKit.Panel(p, new Vector2(-184f, 175f), new Vector2(16f, 16f), UiKit.Gold);
-            finL.GetComponent<Image>().raycastTarget = false;
-            var finR = UiKit.Panel(p, new Vector2(184f, 175f), new Vector2(16f, 16f), UiKit.Gold);
-            finR.GetComponent<Image>().raycastTarget = false;
-
-            summaryBanner = UiKit.RawImage(p, new Vector2(0f, 50f), new Vector2(348f, 240f), null);
+            // banner preview on a plain card
+            UiKit.FramedPanel(p, "StandardBacking", new Vector2(0f, 60f), new Vector2(380f, 270f),
+                UiKit.ParchmentEdge, UiKit.ParchmentLight, UiKit.ParchmentEdge, 3f);
+            summaryBanner = UiKit.RawImage(p, new Vector2(0f, 60f), new Vector2(348f, 240f), null);
 
             foundButton = UiKit.Button(p, Strings.FoundEmpire, new Vector2(0f, -170f), new Vector2(440f, 96f), OnFound, 44);
             UiKit.SetButtonColor(foundButton, UiKit.ButtonColor);
 
-            foundedHint = UiKit.Label(p, Strings.PlaceTownHallHint, new Vector2(0f, -135f), new Vector2(660f, 80f), 30);
+            foundedHint = UiKit.Label(p, Strings.PlaceTownHallHint, new Vector2(0f, -135f), new Vector2(620f, 90f), UiKit.FontBody);
             foundedHint.color = UiKit.Ink;
             newEmpireButton = UiKit.Button(p, Strings.NewEmpire, new Vector2(0f, -235f), new Vector2(360f, 76f), OnNewEmpire, 36);
-            UiKit.SetButtonColor(newEmpireButton, UiKit.OakMid);
+            UiKit.StyleSecondary(newEmpireButton);
         }
 
         void CommitName()
@@ -553,7 +763,8 @@ namespace HoldTheTable
 
         void OnNext()
         {
-            if (page == 1) CommitName();
+            if (page > PageBanner) return;
+            if (page == PageName) CommitName();
             ShowPage(page + 1);
         }
 
@@ -561,23 +772,19 @@ namespace HoldTheTable
         {
             if (pages == null) return;
             int prev = page;
-            if (prev == 1 && index != 1) CommitName();
+            if (prev == PageName && index != PageName) CommitName();
             page = Mathf.Clamp(index, 0, pages.Length - 1);
             if (page != prev && IsOpen && ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.PageTurn, transform.position);
             for (int i = 0; i < pages.Length; i++) pages[i].gameObject.SetActive(i == page);
 
-            if (stepIndicator != null)
-            {
-                string[] numerals = { "I", "II", "III", "IV" };
-                var sb = new System.Text.StringBuilder(64);
-                for (int s = 0; s < numerals.Length; s++)
+            if (stepDots != null)
+                for (int d = 0; d < stepDots.Length; d++)
                 {
-                    if (s > 0) sb.Append("  ·  ");
-                    if (s == page) sb.Append("<color=#7A1C17><b>[").Append(numerals[s]).Append("]</b></color>");
-                    else sb.Append("<color=#594230>").Append(numerals[s]).Append("</color>");
+                    bool setupPage = page < SetupPageCount;
+                    stepDots[d].gameObject.SetActive(setupPage);
+                    stepDots[d].color = d == page ? UiKit.ButtonColor : (d < page ? UiKit.InkMuted : UiKit.ParchmentShade);
+                    ((RectTransform)stepDots[d].transform).sizeDelta = d == page ? new Vector2(26f, 18f) : new Vector2(18f, 18f);
                 }
-                stepIndicator.text = sb.ToString();
-            }
 
             if (page == 0 && civilizationSelector != null) civilizationSelector.Refresh();
             if (page == 1 && keyboard != null) keyboard.SetText(CivilizationProfile.Current.empireName);
@@ -588,11 +795,16 @@ namespace HoldTheTable
                 if (drawingCanvas != null && drawingCanvas.IsBuilt) drawingCanvas.Build(drawingCanvas.Area); // reload saved strokes
                 bannerCustomizer.Build(bannerPanel, drawingCanvas);         // refresh swatches/preview
             }
-            if (page == 3) RefreshSummary();
-
-            if (backButton != null) backButton.gameObject.SetActive(page > 0 && !founded);
-            if (nextButton != null) nextButton.gameObject.SetActive(page < 2 && !founded);
+            if (page == PageFound) RefreshSummary();
+            if (page == PageSettings) RefreshSettingsButtons();
+            RefreshNavButtons();
             RefreshFoundedState();
+        }
+
+        void RefreshNavButtons()
+        {
+            if (backButton != null) backButton.gameObject.SetActive(!founded && page != PageStart && page != PageEnd);
+            if (nextButton != null) nextButton.gameObject.SetActive(!founded && page <= PageName);
         }
 
         void RefreshSummary()
@@ -610,8 +822,7 @@ namespace HoldTheTable
             foundButton.gameObject.SetActive(!founded);
             foundedHint.gameObject.SetActive(founded);
             newEmpireButton.gameObject.SetActive(founded);
-            if (backButton != null) backButton.gameObject.SetActive(page > 0 && !founded);
-            if (nextButton != null) nextButton.gameObject.SetActive(page < 2 && !founded);
+            RefreshNavButtons();
             if (founded)
             {
                 var gd = GameDirector.Instance;
@@ -637,7 +848,7 @@ namespace HoldTheTable
         {
             founded = false;
             if (GameDirector.Instance != null) GameDirector.Instance.NewEmpire(); // → PhaseChanged(CivilizationSetup) → Open()
-            if (!IsOpen || page != 0) Open();
+            if (!IsOpen || page != PageCiv) Open();
         }
     }
 }

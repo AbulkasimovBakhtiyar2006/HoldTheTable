@@ -16,6 +16,11 @@ namespace HoldTheTable
         public bool complete;
         public float progress;
         public GameObject visual;
+        /// <summary>Harpooner firing position on the floor (rope sites only).</summary>
+        public Vector3 shootPos;
+        /// <summary>True while a harpoon rope is reserved but not yet deployed.</summary>
+        public bool pending;
+        internal float deadline;
         internal Transform grow;
         internal readonly List<GameObject> rungs = new List<GameObject>();
         internal readonly List<float> rungT = new List<float>();
@@ -32,8 +37,8 @@ namespace HoldTheTable
     {
         public const float ObstaclePad = 0.04f;
         public const float DetourRatio = 1.6f;
-        public const int MaxRopesPerWave = 3;
-        public const int MaxRopesTotal = 6;
+        public const int MaxRopesPerWave = 8;
+        public const int MaxRopesTotal = 12;
         public const int MaxLadders = 2;
         public const float LadderBuildSeconds = 6f;
         const float FloorSpeed = 0.10f, ClimbSpeed = 0.05f, RopeSpeed = 0.12f, LadderSpeed = 0.09f;
@@ -77,6 +82,7 @@ namespace HoldTheTable
         readonly List<int> visited = new List<int>(16);
         readonly List<ClimbAccess> accesses = new List<ClimbAccess>();
         readonly List<ToppleAnim> toppling = new List<ToppleAnim>(8);
+        readonly List<ClimbAccess> pendingRopes = new List<ClimbAccess>(4);
         int ropesThisWave;
         Transform visualRoot;
 
@@ -87,6 +93,8 @@ namespace HoldTheTable
         bool hasContext;
 
         public IReadOnlyList<ClimbAccess> Accesses => accesses;
+        /// <summary>Reserved harpoon ropes not yet deployed.</summary>
+        public int PendingRopeCount => pendingRopes.Count;
         public int RopeCount { get { int n = 0; for (int i = 0; i < accesses.Count; i++) if (!accesses[i].isLadder) n++; return n; } }
         public int LadderCount { get { int n = 0; for (int i = 0; i < accesses.Count; i++) if (accesses[i].isLadder) n++; return n; } }
 
@@ -102,6 +110,9 @@ namespace HoldTheTable
         void Update()
         {
             float t = Time.time;
+            // fallback: a reserved harpoon rope whose harpooner died / never arrived is deployed anyway (enemies are never stuck)
+            for (int i = pendingRopes.Count - 1; i >= 0; i--)
+                if (i < pendingRopes.Count && t >= pendingRopes[i].deadline) DeployRope(pendingRopes[i]);
             for (int i = 0; i < accesses.Count; i++)
             {
                 var a = accesses[i];
@@ -444,6 +455,85 @@ namespace HoldTheTable
             for (int g = 1; g <= 5 && !s.IsPointSupported(top); g++)
                 top = s.ProjectOnto(Vector3.Lerp(edge - outward * 0.03f, hall, g / 5f));
             return top;
+        }
+
+        // ------------------------------------------------------------ harpoon ropes (Harpooner)
+        static readonly float[] RopeAngles = { 0f, 35f, -35f, 70f, -70f, 110f, -110f, 150f, 180f };
+
+        /// <summary>Reserves a rope site at a table/surface edge for a Harpooner (not climbable until DeployRope).
+        /// `index` spreads several harpooners over different edges. Never returns null for a raised surface.</summary>
+        public ClimbAccess ReserveRopeSite(Vector3 from, Vector3 hall, ITableSurface s, float floorY, int index)
+        {
+            if (s == null || !IsRaised(s, floorY)) return null;
+            Remember(hall, s, floorY);
+            CollectObstacles(s, floorY);
+            Vector3 dir0 = from - hall; dir0.y = 0f;
+            if (dir0.sqrMagnitude < 1e-6f) dir0 = Vector3.forward;
+            dir0.Normalize();
+            float surfY = s.Pose.position.y;
+            float shift = (index % 2 == 0 ? 1f : -1f) * ((index + 1) / 2) * 38f;
+            ClimbAccess first = null;
+            for (int ai = 0; ai <= RopeAngles.Length; ai++)
+            {
+                float ang = shift + (ai < RopeAngles.Length ? RopeAngles[ai] : 0f);
+                Vector3 dir = Quaternion.Euler(0f, ang, 0f) * dir0;
+                Vector3 edge = s.ClosestEdgePoint(s.ProjectOnto(hall + dir * 5f));
+                Vector3 top = edge - dir * 0.01f; top.y = surfY + 0.004f;
+                var a = new ClimbAccess
+                {
+                    isLadder = false, surfaceId = s.Id, top = top, outward = dir,
+                    bottom = new Vector3(edge.x + dir.x * 0.012f, floorY, edge.z + dir.z * 0.012f),
+                    approach = new Vector3(edge.x + dir.x * (ObstaclePad + 0.01f), floorY, edge.z + dir.z * (ObstaclePad + 0.01f)),
+                    shootPos = new Vector3(edge.x + dir.x * 0.40f, floorY, edge.z + dir.z * 0.40f),
+                    complete = false, pending = true, swayPhase = UnityEngine.Random.value * 6f,
+                    deadline = Time.time + 14f,
+                };
+                if (first == null) first = a;
+                if (RopeSiteFree(a, s.Id) || ai == RopeAngles.Length) { if (ai == RopeAngles.Length) a = first; pendingRopes.Add(a); Announcement?.Invoke(Strings.HarpoonerSpotted, a.shootPos); return a; }
+            }
+            return null;
+        }
+
+        bool RopeSiteFree(ClimbAccess a, string hallId)
+        {
+            for (int i = 0; i < accesses.Count; i++) if (FlatDist(accesses[i].top, a.top) < 0.18f) return false;
+            for (int i = 0; i < pendingRopes.Count; i++) if (FlatDist(pendingRopes[i].top, a.top) < 0.18f) return false;
+            for (int i = 0; i < obs.Count; i++)
+            {
+                if (obs[i].id == hallId) continue;
+                if (Inside(obs[i], a.approach) || Inside(obs[i], a.shootPos)) return false;
+            }
+            return true;
+        }
+
+        /// <summary>Makes the reserved rope real RIGHT NOW (harpoon hit, or fallback). Returns the live rope (an existing one if adjacent).</summary>
+        public ClimbAccess DeployRope(ClimbAccess site)
+        {
+            if (site == null) return null;
+            pendingRopes.Remove(site);
+            site.pending = false;
+            for (int i = 0; i < accesses.Count; i++)
+                if (accesses[i] == site) return site;
+            for (int i = 0; i < accesses.Count; i++)
+                if (!accesses[i].isLadder && accesses[i].surfaceId == site.surfaceId && FlatDist(accesses[i].top, site.top) < 0.15f) return accesses[i];
+            site.complete = true; site.progress = 1f;
+            site.visual = BuildRopeVisual(site);
+            accesses.Add(site);
+            ropesThisWave++;
+            if (VfxPool.Instance != null) { VfxPool.Instance.Burst(site.top, new Color(0.6f, 0.45f, 0.25f)); VfxPool.Instance.Ring(site.top, 0.06f); }
+            ProceduralAudio.Fire(Sfx.Rope, site.top);
+            Announcement?.Invoke(Strings.RopeSet, site.top);
+            // everything already walking on the floor toward a bare climb now takes the rope
+            var list = MonsterUnit.Active;
+            for (int i = 0; i < list.Count; i++) if (list[i] != null) list[i].RefreshRoute(site);
+            return site;
+        }
+
+        /// <summary>The harpooner died or aborted: deploy its rope after `delay` seconds anyway.</summary>
+        public void ScheduleFallbackRope(ClimbAccess site, float delay)
+        {
+            if (site == null || !site.pending) return;
+            site.deadline = Mathf.Min(site.deadline, Time.time + delay);
         }
 
         // ------------------------------------------------------------ ropes
@@ -803,6 +893,7 @@ namespace HoldTheTable
             accesses.Clear();
             for (int i = 0; i < toppling.Count; i++) if (toppling[i].visual != null) Destroy(toppling[i].visual);
             toppling.Clear();
+            pendingRopes.Clear();
             ropesThisWave = 0;
         }
     }

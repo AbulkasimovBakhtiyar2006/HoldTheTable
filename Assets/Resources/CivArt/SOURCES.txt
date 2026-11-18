@@ -1,0 +1,20 @@
+Civilization art for the Imperial Scroll (downscaled to max 512 px, JPEG q70, cropped at runtime via uvRect).
+All files from Wikimedia Commons, license CC0 1.0 (public domain dedication, http://creativecommons.org/publicdomain/zero/1.0/).
+
+celestial.jpg
+  Title:   Temple of Heaven-1 (Hall of Prayer for Good Harvests, Beijing)
+  Author:  Balon Greyjoy
+  License: CC0
+  Source:  https://commons.wikimedia.org/wiki/File:20200110_Temple_of_Heaven-1.jpg
+
+verdant.jpg
+  Title:   Borgund stave church (17162)
+  Author:  KenSwe72
+  License: CC0
+  Source:  https://commons.wikimedia.org/wiki/File:Borgund_stave_church_(17162).jpg
+
+iron.jpg
+  Title:   Burg Eltz 5
+  Author:  Ahrtaler2
+  License: CC0
+  Source:  https://commons.wikimedia.org/wiki/File:Burg_Eltz_5.jpg

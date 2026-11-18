@@ -44,3 +44,26 @@
 - Wall line drawing: hold the wall token low over the surface and sweep — joined wall segments are built along the path.
 - Economy: Gold resource, Farm (+1.5 timber/s) and Mine (+1 gold/s) with civilization-styled models, Archer Tower costs gold, separate economy limit (8), Harvest upgrade, 5-slot tray, HUD shows Gold and income rates.
 - Music: public-domain classical pieces transcribed in code and synthesized offline (Pachelbel Canon in D, Bach/Petzold Minuet in G, Grieg In the Hall of the Mountain King for waves, Beethoven Ode to Joy on victory, Chopin Funeral March on defeat); 16 new procedural SFX (scroll, page, keys, hammer, arrows, march, portal hum, horn, coins, harvest, rope, ladder, climb, ram, hall thud, banner flap).
+
+## Swarm sprint
+- Fixed Unity 6 compile errors (obsolete GetInstanceID).
+- Added CombatJuiceController (floating damage text, hit flash, fire/smoke), TacticalAdvisorController (threat lines, skippable countdown ring), WorldEventsController (Golden Age streak, ruin obelisk), HolographicRadar (wrist radar).
+- GameDirector.AddTimber(float).
+
+## Swarm round: Miracles, Warlords, Trophies, Chronicle, Wonders
+- DivineMiraclesAndHeroController: grabbable Hero (Heroic Slam), Meteor Rain (two palms), Protective Dome (crossed wrists).
+- WarlordAiPersonalityDirector: Saboteur / Breaker / Shaman named warlords with unique AI and healing totems.
+- ImperialTrophiesAndAudioJuiceController: velvet trophy stand beside the scroll, persistent unlockable cups, procedural chimes.
+- WarChronicleTracker: gold/timber income graph and extended stats on EndScreen (MonsterUnit.FellOffTable hook).
+- WorldEventsController: Jade Bell, Yggdrasil, Tesla Tower wonders per civilization.
+
+## Swarm round 2
+- HarpoonerUnit + instant ropes (ClimbRoutes/WaveSpawner/MonsterUnit): Harpooner spawns first each wave, fires harpoon, rope deploys immediately; fallback rope if it dies.
+- UnitScale: shared soldier size standard (BuildingVisuals/DefenderUnit/BarracksSpawner).
+- HolographicRadar redesign: ornate bezel, glass dome, sweep, per-class blips, danger arrows.
+- AntiAirTower: 6th tray slot, flak missiles vs flyers only.
+
+## Swarm round 3: civ unit redesign
+- Soldiers (spearman/swordsman/archer) redesigned per civilization (DefenderUnit/BuildingVisuals), meshes combined by material.
+- Hero Champion per civ (celestial/verdant/iron) with plinths and animations.
+- Peasants/workers per civ via CivUnitStyle.cs with tools and walk/work animation.

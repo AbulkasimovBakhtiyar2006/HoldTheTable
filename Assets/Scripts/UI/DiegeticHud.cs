@@ -26,6 +26,8 @@ namespace HoldTheTable
         RectTransform hintRect;
         CanvasGroup group;
         TMP_Text hintText;
+        RectTransform hpFill;
+        Image hpFillImage;
         Button skipButton;
         Camera cam;
         bool built, subscribed, skipVisible = true, placedOnce;
@@ -68,52 +70,55 @@ namespace HoldTheTable
             content = UiKit.Rect(root, "HudContent", Vector2.zero, new Vector2(400f, 260f));
             group = content.gameObject.AddComponent<CanvasGroup>();
 
-            // Diegetic carved walnut & antique brass war-ledger plaque
+            // Flat dark card with a hairline border. Hierarchy: wave (heading) > hall bar > resources > hint.
             UiKit.FramedPanel(content, "HudBackground", Vector2.zero, new Vector2(400f, 260f),
-                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.Gold, 6f, true);
+                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.WalnutFrame, 3f);
 
-            // Header band for Wave & Countdown
-            var headerBand = UiKit.Panel(content, new Vector2(0f, 96f), new Vector2(376f, 40f), new Color(0.24f, 0.12f, 0.09f, 0.92f));
-            headerBand.name = "HeaderBand";
-            headerBand.GetComponent<Image>().raycastTarget = false;
-            var headerRule = UiKit.Panel(content, new Vector2(0f, 75f), new Vector2(376f, 2f), UiKit.Gold);
-            headerRule.GetComponent<Image>().raycastTarget = false;
+            var ivory = UiKit.ParchmentLight;
+            var muted = new Color(0.72f, 0.68f, 0.60f);
 
-            // Vertical brass separator for the 2x2 economy/defense stat grid
-            var vSplit = UiKit.Panel(content, new Vector2(0f, 30f), new Vector2(2f, 74f), UiKit.BronzeShadow);
-            vSplit.GetComponent<Image>().raycastTarget = false;
-
-            // Horizontal divider above the bottom command/hint bar
-            var hSplit = UiKit.Panel(content, new Vector2(0f, -15f), new Vector2(376f, 2f), UiKit.BronzeShadow);
-            hSplit.GetComponent<Image>().raycastTarget = false;
-
-            Color warmVellum = UiKit.ParchmentLight;
-            var wave = UiKit.Label(content, string.Empty, new Vector2(-94f, 96f), new Vector2(176f, 36f), 26, TextAlignmentOptions.Left);
-            var countdown = UiKit.Label(content, string.Empty, new Vector2(94f, 96f), new Vector2(176f, 36f), 22, TextAlignmentOptions.Right);
-
-            // 2x2 stat grid with a 16px center gutter (-182..-10 left, +10..+182 right)
-            var timber = UiKit.Label(content, string.Empty, new Vector2(-96f, 49f), new Vector2(172f, 34f), 24, TextAlignmentOptions.Left);
-            var hall = UiKit.Label(content, string.Empty, new Vector2(96f, 49f), new Vector2(172f, 34f), 24, TextAlignmentOptions.Right);
-            var gold = UiKit.Label(content, string.Empty, new Vector2(-96f, 11f), new Vector2(172f, 34f), 24, TextAlignmentOptions.Left);
-            var charges = UiKit.Label(content, string.Empty, new Vector2(96f, 11f), new Vector2(172f, 34f), 22, TextAlignmentOptions.Right);
-
-            timber.enableAutoSizing = gold.enableAutoSizing = charges.enableAutoSizing = hall.enableAutoSizing = true;
-            timber.fontSizeMin = gold.fontSizeMin = charges.fontSizeMin = hall.fontSizeMin = 15;
-            timber.fontSizeMax = gold.fontSizeMax = hall.fontSizeMax = 24;
-            charges.fontSizeMax = 22;
-            timber.textWrappingMode = gold.textWrappingMode = charges.textWrappingMode = hall.textWrappingMode = TextWrappingModes.NoWrap;
-
+            var wave = UiKit.Label(content, string.Empty, new Vector2(-70f, 100f), new Vector2(230f, 44f), 34, TextAlignmentOptions.Left);
+            var countdown = UiKit.Label(content, string.Empty, new Vector2(120f, 100f), new Vector2(150f, 44f), 24, TextAlignmentOptions.Right);
             wave.color = UiKit.GoldBright;
-            countdown.color = warmVellum;
-            timber.color = new Color(0.90f, 0.75f, 0.48f);  // Warm seasoned oak
-            gold.color = new Color(0.88f, 0.72f, 0.30f);    // Burnished metallic gold
-            charges.color = new Color(0.92f, 0.78f, 0.46f); // Warm imperial amber (no sci-fi cyan)
+            countdown.color = muted;
 
-            hintText = UiKit.Label(content, string.Empty, new Vector2(-64f, -68f), new Vector2(236f, 82f), 19, TextAlignmentOptions.Left);
-            hintText.color = warmVellum;
+            var hall = UiKit.Label(content, string.Empty, new Vector2(-90f, 58f), new Vector2(190f, 32f), 24, TextAlignmentOptions.Left);
+            var charges = UiKit.Label(content, string.Empty, new Vector2(100f, 58f), new Vector2(190f, 32f), 22, TextAlignmentOptions.Right);
+
+            // hall health bar
+            var track = UiKit.Panel(content, new Vector2(0f, 34f), new Vector2(360f, 14f), new Color(1f, 1f, 1f, 0.12f));
+            track.name = "HallBarTrack";
+            track.GetComponent<Image>().raycastTarget = false;
+            hpFill = UiKit.Panel(track, Vector2.zero, new Vector2(360f, 14f), new Color(0.46f, 0.74f, 0.45f));
+            hpFill.name = "HallBarFill";
+            hpFill.GetComponent<Image>().raycastTarget = false;
+            hpFill.anchorMin = new Vector2(0f, 0f); hpFill.anchorMax = new Vector2(1f, 1f);
+            hpFill.pivot = new Vector2(0f, 0.5f);
+            hpFill.offsetMin = hpFill.offsetMax = Vector2.zero;
+            hpFillImage = hpFill.GetComponent<Image>();
+
+            var timber = UiKit.Label(content, string.Empty, new Vector2(-90f, -2f), new Vector2(190f, 34f), 26, TextAlignmentOptions.Left);
+            var gold = UiKit.Label(content, string.Empty, new Vector2(100f, -2f), new Vector2(190f, 34f), 26, TextAlignmentOptions.Right);
+
+            var rule = UiKit.Panel(content, new Vector2(0f, -30f), new Vector2(360f, 2f), new Color(1f, 1f, 1f, 0.12f));
+            rule.GetComponent<Image>().raycastTarget = false;
+
+            hall.color = ivory; charges.color = muted;
+            timber.color = new Color(0.86f, 0.74f, 0.52f);
+            gold.color = UiKit.GoldBright;
+            foreach (var t in new[] { timber, gold, charges, hall })
+            {
+                t.enableAutoSizing = true; t.fontSizeMin = 18; t.fontSizeMax = t.fontSize;
+                t.textWrappingMode = TextWrappingModes.NoWrap;
+            }
+            foreach (var t in new[] { wave, countdown }) { t.fontStyle = FontStyles.Bold; t.textWrappingMode = TextWrappingModes.NoWrap; }
+
+            hintText = UiKit.Label(content, string.Empty, new Vector2(-64f, -78f), new Vector2(236f, 76f), 22, TextAlignmentOptions.Left);
+            hintText.color = ivory;
+            hintText.enableAutoSizing = true; hintText.fontSizeMin = 18; hintText.fontSizeMax = 22;
             hintRect = hintText.rectTransform;
 
-            skipButton = UiKit.Button(content, Strings.Skip, new Vector2(124f, -68f), new Vector2(116f, 70f), OnSkip, 26);
+            skipButton = UiKit.Button(content, Strings.Skip, new Vector2(124f, -78f), new Vector2(116f, 64f), OnSkip, 26);
             UiKit.SetButtonColor(skipButton, UiKit.ButtonColor);
 
             waveCounter = gameObject.AddComponent<WaveCounter>();
@@ -182,6 +187,12 @@ namespace HoldTheTable
             int charges = ShockwaveAbility.Instance != null ? ShockwaveAbility.Instance.Charges : 0;
             scoreDisplay.RefreshEconomy(Mathf.FloorToInt(gd.Timber), gd.IsCombatPhase ? gd.TimberRate : 0f, Mathf.FloorToInt(gd.Gold), gd.IsCombatPhase ? gd.GoldRate : 0f);
             scoreDisplay.RefreshStatus(hp, max, charges);
+            if (hpFill != null && max > 0)
+            {
+                float r = Mathf.Clamp01(hp / (float)max);
+                hpFill.anchorMax = new Vector2(r, 1f);
+                hpFillImage.color = r > 0.55f ? new Color(0.46f, 0.74f, 0.45f) : (r > 0.3f ? new Color(0.92f, 0.70f, 0.28f) : new Color(0.88f, 0.35f, 0.28f));
+            }
             waveCounter.Refresh(gd.WaveIndex, phase == GamePhase.BuildPhase ? gd.Countdown : -1f);
 
             bool wantSkip = phase == GamePhase.BuildPhase;
@@ -191,8 +202,8 @@ namespace HoldTheTable
                 skipButton.gameObject.SetActive(wantSkip);
                 if (hintRect != null)
                 {
-                    hintRect.anchoredPosition = wantSkip ? new Vector2(-64f, -68f) : new Vector2(0f, -68f);
-                    hintRect.sizeDelta = wantSkip ? new Vector2(236f, 82f) : new Vector2(364f, 82f);
+                    hintRect.anchoredPosition = wantSkip ? new Vector2(-64f, -78f) : new Vector2(0f, -78f);
+                    hintRect.sizeDelta = wantSkip ? new Vector2(236f, 76f) : new Vector2(364f, 76f);
                 }
             }
 

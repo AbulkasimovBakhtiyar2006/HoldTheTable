@@ -21,3 +21,9 @@ Notes:
 - `com.meta.xr.sdk.all` and the standalone `com.unity.textmeshpro` package were not used: the project uses the individual Meta packages above (same SDK release line) and TextMeshPro as shipped inside `com.unity.ugui` 2.x in Unity 6.
 - Project settings and XR loader configuration were copied from the author's own local project `ArenaClash` as a starting configuration; no code or assets from it are included.
 - Default TextMeshPro font asset (LiberationSans SDF) ships with Unity UI / TextMeshPro essentials.
+
+## Civilization selection art (Assets/Resources/CivArt/)
+Wikimedia Commons, all CC0 1.0 (http://creativecommons.org/publicdomain/zero/1.0/); downscaled to 512 px and recompressed.
+- celestial.jpg: "Temple of Heaven-1" by Balon Greyjoy, https://commons.wikimedia.org/wiki/File:20200110_Temple_of_Heaven-1.jpg
+- verdant.jpg: "Borgund stave church (17162)" by KenSwe72, https://commons.wikimedia.org/wiki/File:Borgund_stave_church_(17162).jpg
+- iron.jpg: "Burg Eltz 5" by Ahrtaler2, https://commons.wikimedia.org/wiki/File:Burg_Eltz_5.jpg

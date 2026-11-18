@@ -8,33 +8,37 @@ namespace HoldTheTable
     /// <summary>Runtime uGUI builders for world-space canvases. All rects use centered anchors/pivot.</summary>
     public static class UiKit
     {
-        // Parchment & Vellum Surfaces
-        public static readonly Color Parchment      = new Color(0.93f, 0.87f, 0.75f, 1f); // #EDE0BF Aged Vellum
-        public static readonly Color ParchmentLight = new Color(0.96f, 0.92f, 0.83f, 1f); // #F5EBD4 Highlighted Card / Input Field
-        public static readonly Color ParchmentShade = new Color(0.85f, 0.77f, 0.63f, 1f); // #D9C4A1 Recessed Panel / Card Inner Well
-        public static readonly Color ParchmentEdge  = new Color(0.71f, 0.57f, 0.39f, 1f); // #B59163 Burnt Umber Vignette
+        // ---- Design tokens -------------------------------------------------------------------------
+        // Light surfaces (scroll paper): one warm neutral ramp, no decoration.
+        public static readonly Color Parchment      = new Color(0.945f, 0.918f, 0.855f, 1f); // page
+        public static readonly Color ParchmentLight = new Color(0.985f, 0.973f, 0.945f, 1f); // card / input
+        public static readonly Color ParchmentShade = new Color(0.882f, 0.847f, 0.773f, 1f); // recessed / divider
+        public static readonly Color ParchmentEdge  = new Color(0.800f, 0.757f, 0.667f, 1f); // hairline border
 
-        // Carved Timber & Dark Frames
-        public static readonly Color DarkPanel      = new Color(0.14f, 0.10f, 0.08f, 0.95f); // #241A14 Deep Carved Walnut (HUD/Modal Base)
-        public static readonly Color WalnutFrame    = new Color(0.22f, 0.14f, 0.09f, 1f);    // #382417 Carved Walnut Structural Frame
-        public static readonly Color OakMid         = new Color(0.34f, 0.22f, 0.14f, 1f);    // #573824 Worn Oak Key/Secondary Button
-        public static readonly Color Driftwood      = new Color(0.50f, 0.37f, 0.25f, 1f);    // #805E40 Wood Bevel Highlight
+        // Dark surfaces (HUD, modals)
+        public static readonly Color DarkPanel      = new Color(0.075f, 0.067f, 0.059f, 0.90f);
+        public static readonly Color WalnutFrame    = new Color(0.165f, 0.145f, 0.125f, 1f);  // raised dark / hairline on dark
+        public static readonly Color OakMid         = new Color(0.31f, 0.27f, 0.23f, 1f);     // secondary button
+        public static readonly Color Driftwood      = new Color(0.50f, 0.45f, 0.39f, 1f);
 
-        // Forged Brass, Gold & Bronze Trim
-        public static readonly Color Gold           = new Color(0.78f, 0.62f, 0.24f, 1f); // #C79E3D Brushed Antique Brass (Primary Rim)
-        public static readonly Color GoldBright     = new Color(0.90f, 0.76f, 0.38f, 1f); // #E6C261 Polished Royal Gold (Active Rim / Header)
-        public static readonly Color BronzeShadow   = new Color(0.44f, 0.32f, 0.14f, 1f); // #705224 Cast Bronze Outer Bevel / Drop Shadow
+        // Single accent (gold) used sparingly; BronzeShadow doubles as a subtle line colour.
+        public static readonly Color Gold           = new Color(0.80f, 0.64f, 0.27f, 1f);
+        public static readonly Color GoldBright     = new Color(0.94f, 0.78f, 0.38f, 1f);
+        public static readonly Color BronzeShadow   = new Color(0.72f, 0.66f, 0.55f, 1f);
 
-        // Typography (Iron Gall Ink & Illuminated Script)
-        public static readonly Color Ink            = new Color(0.16f, 0.11f, 0.08f, 1f); // #291C14 Primary Iron-Gall Ink
-        public static readonly Color InkMuted       = new Color(0.35f, 0.26f, 0.19f, 1f); // #594230 Secondary / Subheadings
-        public static readonly Color RubricCrimson  = new Color(0.48f, 0.11f, 0.09f, 1f); // #7A1C17 Manuscript Rubrication Title
-        public static readonly Color ButtonText     = new Color(0.96f, 0.91f, 0.80f, 1f); // #F5E8CC Warm Ivory Text on Dark/Crimson
+        // Typography
+        public static readonly Color Ink            = new Color(0.125f, 0.105f, 0.090f, 1f);
+        public static readonly Color InkMuted       = new Color(0.40f, 0.35f, 0.30f, 1f);
+        public static readonly Color RubricCrimson  = new Color(0.62f, 0.17f, 0.13f, 1f);     // emphasis / primary
+        public static readonly Color ButtonText     = new Color(0.99f, 0.97f, 0.93f, 1f);
 
-        // Tactile Action Buttons
-        public static readonly Color ButtonColor    = new Color(0.48f, 0.13f, 0.11f, 1f); // #7A211C Deep Wax-Seal Crimson
-        public static readonly Color ConfirmGreen   = new Color(0.19f, 0.34f, 0.20f, 1f); // #305733 Noble Forest Emerald
-        public static readonly Color ActiveTabAmber = new Color(0.60f, 0.41f, 0.14f, 1f); // #996924 Gilded Ochre Active Toggle
+        // Actions
+        public static readonly Color ButtonColor    = new Color(0.62f, 0.17f, 0.13f, 1f);     // primary
+        public static readonly Color ConfirmGreen   = new Color(0.20f, 0.42f, 0.28f, 1f);
+        public static readonly Color ActiveTabAmber = new Color(0.76f, 0.54f, 0.16f, 1f);
+
+        // Type scale (px on the 800-wide canvases) -- use these instead of ad-hoc sizes.
+        public const int FontDisplay = 56, FontTitle = 44, FontHeading = 36, FontBody = 28, FontCaption = 24;
 
         static Sprite whiteSprite;
         static Sprite plaqueSprite;
@@ -51,46 +55,30 @@ namespace HoldTheTable
             }
         }
 
-        /// <summary>Procedural 9-sliced chamfered plaque sprite with subtle top highlight bevel, bottom shade bevel, and fine surface grain.</summary>
+        /// <summary>Procedural 9-sliced rounded rectangle (anti-aliased, white) tinted via Image.color.</summary>
         public static Sprite PlaqueSprite
         {
             get
             {
                 if (plaqueSprite != null) return plaqueSprite;
-                const int S = 48;
+                const int S = 64; const float R = 22f;
                 var tex = new Texture2D(S, S, TextureFormat.RGBA32, false)
                 {
-                    name = "UiKitPlaqueTex",
-                    wrapMode = TextureWrapMode.Clamp,
-                    filterMode = FilterMode.Bilinear
+                    name = "UiKitRoundTex", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear
                 };
                 var px = new Color32[S * S];
                 for (int y = 0; y < S; y++)
-                {
                     for (int x = 0; x < S; x++)
                     {
-                        int dx = Mathf.Min(x, S - 1 - x);
-                        int dy = Mathf.Min(y, S - 1 - y);
-                        // 2px chamfered corners
-                        int corner = dx + dy;
-                        float a = corner < 2 ? 0f : (corner == 2 ? 0.55f : 1f);
-                        // subtle inner frame border & top/bottom bevel
-                        float lum = 0.97f;
-                        if (dx == 0 || dy == 0) lum = 0.80f;
-                        else if (y >= S - 3) lum = 1.0f;
-                        else if (y <= 2) lum = 0.88f;
-                        else if (dx <= 2 || dy <= 2) lum = 0.94f;
-                        // subtle linen/wood micro-grain
-                        float grain = (((x * 7 + y * 13) & 3) - 1.5f) * 0.006f;
-                        byte v = (byte)Mathf.Clamp(Mathf.RoundToInt((lum + grain) * 255f), 0, 255);
-                        byte alpha = (byte)Mathf.Clamp(Mathf.RoundToInt(a * 255f), 0, 255);
-                        px[y * S + x] = new Color32(v, v, v, alpha);
+                        float cx = Mathf.Clamp(x + 0.5f, R, S - R), cy = Mathf.Clamp(y + 0.5f, R, S - R);
+                        float d = Mathf.Sqrt((x + 0.5f - cx) * (x + 0.5f - cx) + (y + 0.5f - cy) * (y + 0.5f - cy));
+                        byte a = (byte)Mathf.RoundToInt(Mathf.Clamp01(R - d + 0.5f) * 255f);
+                        px[y * S + x] = new Color32(255, 255, 255, a);
                     }
-                }
                 tex.SetPixels32(px);
                 tex.Apply(false, true);
-                plaqueSprite = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(8, 8, 8, 8));
-                plaqueSprite.name = "UiKitPlaque";
+                plaqueSprite = Sprite.Create(tex, new Rect(0, 0, S, S), new Vector2(0.5f, 0.5f), 100f, 0, SpriteMeshType.FullRect, new Vector4(R, R, R, R));
+                plaqueSprite.name = "UiKitRound";
                 return plaqueSprite;
             }
         }
@@ -113,102 +101,58 @@ namespace HoldTheTable
         {
             var rt = Rect(parent, "Panel", anchoredPos, size);
             var img = rt.gameObject.AddComponent<Image>();
-            bool usePlaque = size.x >= 20f && size.y >= 20f;
+            bool usePlaque = size.x >= 14f && size.y >= 14f;
             img.sprite = usePlaque ? PlaqueSprite : WhiteSprite;
             img.type = usePlaque ? Image.Type.Sliced : Image.Type.Simple;
+            if (usePlaque) img.pixelsPerUnitMultiplier = 22f / Mathf.Clamp(Mathf.Min(size.x, size.y) * 0.25f, 5f, 22f); // corner radius ≈ 25% of short side, max 22px
             img.color = c;
             img.raycastTarget = c.a > 0.01f;
             return rt;
         }
 
-        /// <summary>Multi-layered medieval tabletop frame: outer walnut/bronze plaque + antique brass rim + recessed inner well + optional corner studs.</summary>
+        /// <summary>Flat card: 2px border colour, fill inset, one soft drop shadow. (Name kept for existing callers.)</summary>
         public static RectTransform FramedPanel(RectTransform parent, string name, Vector2 anchoredPos, Vector2 size,
             Color outerColor, Color innerColor, Color rimColor, float inset = 6f, bool cornerGems = false)
         {
-            var outer = Panel(parent, anchoredPos, size, outerColor);
+            var outer = Panel(parent, anchoredPos, size, rimColor);
             outer.name = name;
             outer.GetComponent<Image>().raycastTarget = false;
-
-            var outline = outer.gameObject.AddComponent<Outline>();
-            outline.effectColor = rimColor;
-            outline.effectDistance = new Vector2(2f, -2f);
-
             var shadow = outer.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0.05f, 0.03f, 0.02f, 0.52f);
-            shadow.effectDistance = new Vector2(0f, -4f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.28f);
+            shadow.effectDistance = new Vector2(0f, -6f);
 
-            if (inset > 0f && size.x > inset * 2f + 8f && size.y > inset * 2f + 8f)
+            float b = Mathf.Min(inset, 3f);
+            if (b > 0f && size.x > b * 2f + 8f && size.y > b * 2f + 8f)
             {
-                var inner = Panel(outer, Vector2.zero, size - new Vector2(inset * 2f, inset * 2f), innerColor);
+                var inner = Panel(outer, Vector2.zero, size - new Vector2(b * 2f, b * 2f), innerColor);
                 inner.name = name + "_Inner";
                 inner.GetComponent<Image>().raycastTarget = false;
-                var innerRim = inner.gameObject.AddComponent<Outline>();
-                innerRim.effectColor = Color.Lerp(rimColor, BronzeShadow, 0.35f);
-                innerRim.effectDistance = new Vector2(1.5f, -1.5f);
             }
-
-            if (cornerGems) CornerGems(outer, inset + 4f, 8f, GoldBright);
+            else outer.GetComponent<Image>().color = innerColor;
             return outer;
         }
 
-        /// <summary>Places 4 rotated-45° brass diamond studs in the corners of parent.</summary>
-        public static void CornerGems(RectTransform parent, float inset = 10f, float gemSize = 8f, Color? color = null)
-        {
-            if (parent == null) return;
-            Vector2 s = parent.sizeDelta;
-            float hx = Mathf.Max(4f, s.x * 0.5f - inset);
-            float hy = Mathf.Max(4f, s.y * 0.5f - inset);
-            Color c = color ?? GoldBright;
-            for (int sx = -1; sx <= 1; sx += 2)
-            {
-                for (int sy = -1; sy <= 1; sy += 2)
-                {
-                    var gem = Rect(parent, "CornerGem", new Vector2(sx * hx, sy * hy), new Vector2(gemSize, gemSize));
-                    gem.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                    var img = gem.gameObject.AddComponent<Image>();
-                    img.sprite = WhiteSprite;
-                    img.color = c;
-                    img.raycastTarget = false;
-                }
-            }
-        }
+        /// <summary>Deprecated ornament: intentionally empty. Kept so older call sites compile.</summary>
+        public static void CornerGems(RectTransform parent, float inset = 10f, float gemSize = 8f, Color? color = null) { }
 
-        /// <summary>Ornamental manuscript horizontal divider rule with bronze drop line, end pips, and central diamond signet.</summary>
+        /// <summary>Hairline section divider.</summary>
         public static RectTransform Divider(RectTransform parent, Vector2 anchoredPos, float width, bool withCenterGem = true)
         {
-            var root = Rect(parent, "OrnamentalDivider", anchoredPos, new Vector2(width, 14f));
-            var shadowLine = Panel(root, new Vector2(0f, -1.5f), new Vector2(width, 1.5f), BronzeShadow);
-            shadowLine.GetComponent<Image>().raycastTarget = false;
-            var mainLine = Panel(root, new Vector2(0f, 0.5f), new Vector2(width, 2.5f), Gold);
-            mainLine.GetComponent<Image>().raycastTarget = false;
+            var line = Panel(parent, anchoredPos, new Vector2(width, 2f), ParchmentEdge);
+            line.name = "Divider";
+            line.GetComponent<Image>().raycastTarget = false;
+            return line;
+        }
 
-            for (int s = -1; s <= 1; s += 2)
-            {
-                var pip = Rect(root, "EndPip", new Vector2(s * (width * 0.5f - 3f), 0f), new Vector2(6f, 6f));
-                pip.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                var pImg = pip.gameObject.AddComponent<Image>();
-                pImg.sprite = WhiteSprite;
-                pImg.color = GoldBright;
-                pImg.raycastTarget = false;
-            }
-
-            if (withCenterGem)
-            {
-                var gem = Rect(root, "CenterGem", Vector2.zero, new Vector2(11f, 11f));
-                gem.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                var gImg = gem.gameObject.AddComponent<Image>();
-                gImg.sprite = WhiteSprite;
-                gImg.color = GoldBright;
-                gImg.raycastTarget = false;
-
-                var core = Rect(root, "CenterCore", Vector2.zero, new Vector2(5f, 5f));
-                core.localRotation = Quaternion.Euler(0f, 0f, 45f);
-                var cImg = core.gameObject.AddComponent<Image>();
-                cImg.sprite = WhiteSprite;
-                cImg.color = RubricCrimson;
-                cImg.raycastTarget = false;
-            }
-            return root;
+        /// <summary>Small rounded tag/pill with text, e.g. status chips.</summary>
+        public static TMP_Text Pill(RectTransform parent, string text, Vector2 pos, Vector2 size, Color fill, Color textColor, int fontSize = 22)
+        {
+            var p = Panel(parent, pos, size, fill);
+            p.name = "Pill";
+            p.GetComponent<Image>().raycastTarget = false;
+            var t = Label(p, text, Vector2.zero, size, fontSize);
+            t.color = textColor; t.fontStyle = FontStyles.Bold;
+            return t;
         }
 
         public static Button Button(RectTransform parent, string label, Vector2 pos, Vector2 size, Action onClick, int fontSize = 36)
@@ -223,43 +167,35 @@ namespace HoldTheTable
             var img = rt.gameObject.AddComponent<Image>();
             img.sprite = PlaqueSprite;
             img.type = Image.Type.Sliced;
+            img.pixelsPerUnitMultiplier = 22f / Mathf.Clamp(Mathf.Min(size.x, size.y) * 0.28f, 6f, 22f);
             img.color = ButtonColor;
             var btn = rt.gameObject.AddComponent<Button>();
             btn.targetGraphic = img;
             var colors = btn.colors;
             colors.normalColor = Color.white;
-            colors.highlightedColor = new Color(0.95f, 0.89f, 0.77f, 1f); // warm ivory-gold highlight (no HDR >1.0 bloom)
-            colors.pressedColor = new Color(0.74f, 0.67f, 0.58f, 1f);
+            colors.highlightedColor = new Color(1.12f, 1.08f, 1.04f, 1f);
+            colors.pressedColor = new Color(0.78f, 0.74f, 0.70f, 1f);
             colors.selectedColor = Color.white;
             colors.disabledColor = new Color(0.55f, 0.50f, 0.45f, 0.65f);
             colors.fadeDuration = 0.06f;
             btn.colors = colors;
 
-            // crisp antique brass rim + tabletop elevation shadow
-            var rim = rt.gameObject.AddComponent<Outline>();
-            rim.effectColor = Gold;
-            rim.effectDistance = new Vector2(2f, -2f);
-
             var shadow = rt.gameObject.AddComponent<Shadow>();
-            shadow.effectColor = new Color(0.06f, 0.04f, 0.02f, 0.52f);
-            shadow.effectDistance = new Vector2(0f, -3f);
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.25f);
+            shadow.effectDistance = new Vector2(0f, -4f);
 
-            // subtle top-edge carved plaque bevel highlight
-            var bevel = Rect(rt, "BevelHighlight", Vector2.zero, Vector2.zero);
-            bevel.anchorMin = new Vector2(0f, 1f);
-            bevel.anchorMax = new Vector2(1f, 1f);
-            bevel.pivot = new Vector2(0.5f, 1f);
-            bevel.anchoredPosition = new Vector2(0f, -2f);
-            bevel.sizeDelta = new Vector2(-8f, 2.5f);
-            var bImg = bevel.gameObject.AddComponent<Image>();
-            bImg.sprite = WhiteSprite;
-            bImg.color = new Color(1f, 0.94f, 0.78f, 0.20f);
-            bImg.raycastTarget = false;
+            // selection ring, off until SetSelected(true)
+            var sel = rt.gameObject.AddComponent<Outline>();
+            sel.effectColor = ButtonColor;
+            sel.effectDistance = new Vector2(3f, -3f);
+            sel.enabled = false;
 
             var text = Label(rt, label, Vector2.zero, size - new Vector2(10f, 6f), fontSize);
-            Fill(text.rectTransform, 5f);
+            Fill(text.rectTransform, 8f);
             text.color = ButtonText;
             text.fontStyle = FontStyles.Bold;
+            text.enableAutoSizing = true; text.fontSizeMax = fontSize; text.fontSizeMin = Mathf.Max(14, fontSize * 0.6f);
+            text.textWrappingMode = TextWrappingModes.NoWrap;
             text.raycastTarget = false;
 
             if (onClick != null)
@@ -301,6 +237,25 @@ namespace HoldTheTable
         {
             var t = b.GetComponentInChildren<TMP_Text>(true);
             if (t != null) t.text = label;
+        }
+
+        /// <summary>Shows/hides the accent selection ring on a button created by UiKit.Button.</summary>
+        public static void SetSelected(Button b, bool on, Color? ring = null)
+        {
+            if (b == null) return;
+            var o = b.GetComponent<Outline>();
+            if (o == null) return;
+            o.enabled = on;
+            if (ring.HasValue) o.effectColor = ring.Value;
+        }
+
+        /// <summary>Quiet button for light surfaces (Back, Roll up, Undo): sand fill, dark text.</summary>
+        public static void StyleSecondary(Button b)
+        {
+            if (b == null) return;
+            SetButtonColor(b, ParchmentShade);
+            var t = b.GetComponentInChildren<TMP_Text>(true);
+            if (t != null) t.color = Ink;
         }
 
         public static void SetButtonColor(Button b, Color c)

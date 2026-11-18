@@ -648,9 +648,21 @@ namespace HoldTheTable
 
         // ------------------------------------------------------------ update loop
 
+        /// <summary>World-space velocity (m/s), measured per frame; used by anti-air lead tracking.</summary>
+        public Vector3 Velocity { get; private set; }
+        Vector3 velPrevPos;
+        bool velHasPrev;
+
         void Update()
         {
             if (!launched || Monster == null) return;
+            {
+                float vdt = Time.deltaTime;
+                Vector3 vp = transform.position;
+                if (velHasPrev && vdt > 1e-5f) Velocity = Vector3.Lerp(Velocity, (vp - velPrevPos) / vdt, 0.5f);
+                else Velocity = Vector3.zero;
+                velPrevPos = vp; velHasPrev = true;
+            }
             if (! shockwaveHooked) TryHookShockwave();
 
             UpdateHandSwat();

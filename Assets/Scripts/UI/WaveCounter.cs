@@ -17,8 +17,8 @@ namespace HoldTheTable
         {
             waveText = wave;
             countdownText = countdown;
-            if (waveText != null) waveText.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
-            if (countdownText != null) countdownText.fontStyle = FontStyles.Italic;
+            if (waveText != null) waveText.fontStyle = FontStyles.Bold;
+            if (countdownText != null) countdownText.fontStyle = FontStyles.Normal;
             lastWave = -1;
             lastCountdown = int.MinValue;
         }

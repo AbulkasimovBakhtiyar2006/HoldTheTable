@@ -58,7 +58,7 @@ namespace HoldTheTable
 
             // Carved walnut frame with antique brass rim behind the drawing pad
             var frame = UiKit.FramedPanel(area, "EmblemFrame", Vector2.zero, Vector2.zero,
-                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.Gold, 4f, true);
+                UiKit.ParchmentEdge, UiKit.WalnutFrame, UiKit.ParchmentEdge, 3f);
             UiKit.Fill((RectTransform)frame.transform, 0f);
             frame.GetComponent<Image>().raycastTarget = false;
 

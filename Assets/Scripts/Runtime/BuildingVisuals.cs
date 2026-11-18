@@ -7,6 +7,27 @@ namespace HoldTheTable
     /// Procedural, collider-free geometry for the town hall, defensive units and monsters.
     /// Silhouettes differ per UnitType and per ArchitectureStyle. Shared materials via Mats. Owner: Agent B.
     /// </summary>
+    /// <summary>Single source of truth for troop proportions (table-scale meters). Owner: Agent B.</summary>
+    public static class UnitScale
+    {
+        /// <summary>Feet-to-crown height of a standard foot soldier.</summary>
+        public const float HumanHeight = 0.036f;
+        public const float HeadDiameter = 0.0115f;
+        public const float BodyHalfWidth = 0.0085f;
+        public const float GroundOffset = 0f;
+        /// <summary>Per-type multipliers on the authored 1.0 humanoid. Foot troops are identical in body size.</summary>
+        public const float SpearmanMul = 1.00f;
+        public const float SwordsmanMul = 1.00f;
+        public const float ArcherMul = 0.75f;   // tower crew, stands on a platform
+        public const float CavalryMul = 1.45f;  // mounted unit (rider+horse) footprint reference
+        public const float SiegeMul = 2.20f;    // catapult / ram reference
+        /// <summary>Collision / selection radius of a foot soldier (~0.42 of height).</summary>
+        public const float SoldierRadius = 0.015f;
+        public const float SeparationRadius = 0.026f;
+        public const float AimHeight = HumanHeight * 0.5f;
+        public static float Soldier(DefenderKind k) => k == DefenderKind.Spearman ? SpearmanMul : SwordsmanMul;
+    }
+
     public static class BuildingVisuals
     {
         public const float HallFootprintRadius = 0.085f;
@@ -461,11 +482,10 @@ namespace HoldTheTable
             }
         }
 
-        static void Archer(Kit k, Vector3 at, Palette p)
+        static void Archer(Kit k, Vector3 at, Palette p, ArchitectureStyle style)
         {
-            k.Cyl(at, 0.0045f, 0.012f, p.trim);
-            k.Ball(at + Vector3.up * 0.016f, 0.008f, new Color(0.93f, 0.78f, 0.62f));
-            k.CylRot(at + new Vector3(0.006f, 0.012f, 0.002f), 0.0008f, 0.02f, p.dark, new Vector3(0f, 0f, 10f)); // bow
+            // Same proportions as the foot soldier, scaled by UnitScale.ArcherMul (never larger than infantry).
+            DefenderUnit.BuildArcherVisual(k.root, at, style, p);
         }
 
         static Vector3 Tower(Kit k, ArchitectureStyle s, Palette p)
@@ -480,7 +500,7 @@ namespace HoldTheTable
                     k.Box(new Vector3(0f, 0.035f, 0f), new Vector3(0.03f, 0.04f, 0.03f), p.main);
                     k.PagodaRoof(new Vector3(0f, 0.055f, 0f), 0.034f, 0.014f, p.roof);
                     k.Box(new Vector3(0f, 0.072f, 0f), new Vector3(0.046f, 0.005f, 0.046f), p.main);
-                    Archer(k, new Vector3(0f, 0.075f, 0f), p);
+                    Archer(k, new Vector3(0f, 0.075f, 0f), p, s);
                     k.PagodaRoof(new Vector3(0f, 0.105f, 0f), 0.038f, 0.026f, p.roof);
                     k.Ball(new Vector3(0f, 0.133f, 0f), 0.007f, p.trim);
                     return new Vector3(0f, 0.09f, 0.01f);
@@ -496,7 +516,7 @@ namespace HoldTheTable
                         Quaternion q = Quaternion.Euler(0f, side * 90f, 0f);
                         k.Box(q * new Vector3(0f, 0.09f, 0.025f), new Vector3(0.054f, 0.012f, 0.004f), p.main, new Vector3(0f, side * 90f, 0f));
                     }
-                    Archer(k, new Vector3(0f, 0.084f, 0f), p);
+                    Archer(k, new Vector3(0f, 0.084f, 0f), p, s);
                     k.Pyramid(new Vector3(0f, 0.11f, 0f), 0.036f, 0.032f, p.roof);
                     k.Box(new Vector3(0f, 0.096f, 0.027f), new Vector3(0.012f, 0.008f, 0.002f), p.trim);
                     return new Vector3(0f, 0.1f, 0.01f);
@@ -513,7 +533,7 @@ namespace HoldTheTable
                     }
                     k.Box(new Vector3(0f, 0.045f, 0.0205f), new Vector3(0.004f, 0.014f, 0.002f), p.dark);
                     k.Box(new Vector3(0f, 0.075f, 0.0205f), new Vector3(0.004f, 0.012f, 0.002f), p.dark);
-                    Archer(k, new Vector3(0f, 0.099f, 0f), p);
+                    Archer(k, new Vector3(0f, 0.099f, 0f), p, s);
                     return new Vector3(0f, 0.11f, 0.01f);
             }
         }

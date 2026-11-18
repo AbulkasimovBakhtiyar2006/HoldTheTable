@@ -94,19 +94,9 @@ namespace HoldTheTable
             float y = regionTop;
             float clothY = y - 16f - ph * 0.5f;
 
-            // Recessed dark walnut & brass backing for the banner preview
             var previewBacking = UiKit.FramedPanel(panel, "PreviewBacking", new Vector2(rcx, clothY), new Vector2(pw + 16f, ph + 16f),
-                UiKit.WalnutFrame, UiKit.ParchmentShade, UiKit.Gold, 2.5f, true);
+                UiKit.ParchmentEdge, UiKit.ParchmentLight, UiKit.ParchmentEdge, 3f);
             previewBacking.GetComponent<Image>().raycastTarget = false;
-
-            // Brass hanging crossbar with round finials
-            var crossbar = UiKit.Panel(panel, new Vector2(rcx, clothY + ph * 0.5f + 4f), new Vector2(pw + 14f, 6f), UiKit.WalnutFrame);
-            crossbar.name = "PreviewCrossbar";
-            crossbar.GetComponent<Image>().raycastTarget = false;
-            var finL = UiKit.Panel(panel, new Vector2(rcx - pw * 0.5f - 8f, clothY + ph * 0.5f + 4f), new Vector2(10f, 10f), UiKit.Gold);
-            finL.GetComponent<Image>().raycastTarget = false;
-            var finR = UiKit.Panel(panel, new Vector2(rcx + pw * 0.5f + 8f, clothY + ph * 0.5f + 4f), new Vector2(10f, 10f), UiKit.Gold);
-            finR.GetComponent<Image>().raycastTarget = false;
 
             previewTex = EmblemRasterizer.CreateTexture(EmblemRasterizer.DefaultSize);
             previewTex.name = "BannerPreviewTex";
@@ -116,7 +106,7 @@ namespace HoldTheTable
             y = clothY - ph * 0.5f - 24f;
 
             var paintLbl = UiKit.Label(panel, BannerStrings.PaintTarget, new Vector2(rcx, y - 13f), new Vector2(rc, 26f), 22);
-            paintLbl.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            paintLbl.fontStyle = FontStyles.Bold;
             paintLbl.color = UiKit.Ink;
             y -= 30f;
             float tbh = Mathf.Max(MinButton, Mathf.Min(72f, (y - regionBottom - 96f - 2f * 6f) / 3f));
@@ -400,12 +390,7 @@ namespace HoldTheTable
         static void Highlight(Button b, bool on, bool tool)
         {
             if (b == null) return;
-            var rim = b.GetComponent<Outline>();
-            if (rim != null)
-            {
-                rim.effectColor = on ? UiKit.GoldBright : UiKit.Gold;
-                rim.effectDistance = on ? new Vector2(3f, -3f) : new Vector2(1.5f, -1.5f);
-            }
+            UiKit.SetSelected(b, on, tool ? UiKit.GoldBright : UiKit.Ink);
             if (tool) UiKit.SetButtonColor(b, on ? UiKit.ActiveTabAmber : UiKit.WalnutFrame);
         }
     }

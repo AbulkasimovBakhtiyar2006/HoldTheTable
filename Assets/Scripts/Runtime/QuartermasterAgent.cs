@@ -90,7 +90,7 @@ namespace HoldTheTable
         {
             var go = GameObject.CreatePrimitive(t);
             var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (col != null) DestroyImmediate(col);
             go.transform.SetParent(parent, false);
             go.transform.localPosition = pos;
             go.transform.localScale = scale;

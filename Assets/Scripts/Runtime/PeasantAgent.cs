@@ -39,6 +39,9 @@ namespace HoldTheTable
         Transform woodBundleRoot;
         Transform goldSackRoot;
         Transform panicCueRoot;
+        CivUnitStyle.Rig rig;
+        static CivUnitStyle.Rig lastBuiltRig;
+        float workClock;
 
         ArchitectureStyle lastStyle;
         Color lastBannerColor;
@@ -215,6 +218,12 @@ namespace HoldTheTable
             RebuildVisualIfNeeded();
             SetCargo(PeasantCargo.None);
             SetPanicVisible(false);
+            if (rig != null)
+            {
+                rig.SetTool(building.type == UnitType.Mine ? CivTool.Pickaxe : (slot % 2 == 0 ? CivTool.Hoe : CivTool.Hammer));
+                rig.ShowTool(true);
+                rig.Idle();
+            }
 
             var hall = TownHall.Current;
             Vector3 startPos = hall != null ? GetHallDoorPosition(hall, slot) : building.transform.position;
@@ -247,6 +256,7 @@ namespace HoldTheTable
             lastStyle = style;
             lastBannerColor = pal.banner;
             visualRoot = BuildPeasantVisual(bobRoot, style, pal, out woodBundleRoot, out goldSackRoot, out panicCueRoot);
+            rig = lastBuiltRig;
             visualBuilt = true;
         }
 
@@ -265,46 +275,13 @@ namespace HoldTheTable
             out Transform panicCue)
         {
             var root = BuildingVisuals.NewRoot(parent, "PeasantVisual");
-            var k = new BuildingVisuals.Kit(root);
-
-            Color skin = new Color(0.93f, 0.77f, 0.62f);
-            Color cloth = Color.Lerp(pal.ground, pal.main, 0.45f);
+            var rig = CivUnitStyle.BuildWorker(root, style, pal);
+            lastBuiltRig = rig;
             Color straw = new Color(0.88f, 0.76f, 0.40f);
             Color wood = new Color(0.46f, 0.30f, 0.15f);
             Color gold = new Color(1.0f, 0.82f, 0.20f);
             Color burlap = new Color(0.68f, 0.54f, 0.34f);
-
-            // Little boots
-            k.Ellipsoid(new Vector3(-0.0038f, 0.002f, 0.001f), new Vector3(0.0048f, 0.004f, 0.008f), pal.dark);
-            k.Ellipsoid(new Vector3(0.0038f, 0.002f, 0.001f), new Vector3(0.0048f, 0.004f, 0.008f), pal.dark);
-
-            // Peasant tunic & banner-colored sash/apron
-            k.Cyl(new Vector3(0f, 0.0035f, 0f), 0.0065f, 0.0135f, cloth);
-            k.Box(new Vector3(0f, 0.009f, 0.0056f), new Vector3(0.0085f, 0.009f, 0.002f), pal.banner);
-            k.Cyl(new Vector3(0f, 0.009f, 0f), 0.0068f, 0.002f, pal.dark);
-
-            // Head & eyes
-            k.Ball(new Vector3(0f, 0.0205f, 0f), 0.0102f, skin);
-            k.Ball(new Vector3(-0.0023f, 0.021f, 0.0046f), 0.002f, new Color(0.1f, 0.1f, 0.1f));
-            k.Ball(new Vector3(0.0023f, 0.021f, 0.0046f), 0.002f, new Color(0.1f, 0.1f, 0.1f));
-
-            // Civilization peasant headgear
-            switch (style)
-            {
-                case ArchitectureStyle.TieredRoofs:
-                    // Wide straw conical farmer hat
-                    k.Cone(new Vector3(0f, 0.0235f, 0f), 0.0098f, 0.0065f, straw);
-                    break;
-                case ArchitectureStyle.Timber:
-                    // Rustic cloth hood/cap in banner accent
-                    k.Ellipsoid(new Vector3(0f, 0.0245f, -0.001f), new Vector3(0.011f, 0.0065f, 0.0115f), pal.banner);
-                    break;
-                default:
-                    // Leather workman cap
-                    k.Cyl(new Vector3(0f, 0.023f, 0f), 0.0056f, 0.0045f, pal.dark);
-                    k.Box(new Vector3(0f, 0.0235f, 0.005f), new Vector3(0.007f, 0.0015f, 0.004f), pal.dark);
-                    break;
-            }
+            Color cloth = Color.Lerp(pal.ground, pal.main, 0.45f);
 
             // 1. Wood Logs bundle (for Farm peasants)
             var woodRoot = BuildingVisuals.NewRoot(root, "WoodBundle");
@@ -313,6 +290,7 @@ namespace HoldTheTable
             wk.CylRot(new Vector3(0f, 0.014f, 0.0125f), 0.0024f, 0.018f, wood * 0.85f, new Vector3(0f, 0f, 90f));
             wk.CylRot(new Vector3(0f, 0.0175f, 0.0105f), 0.0023f, 0.017f, wood, new Vector3(0f, 0f, 90f));
             wk.Box(new Vector3(0f, 0.0155f, 0.0105f), new Vector3(0.004f, 0.0065f, 0.0065f), straw);
+            woodRoot.localPosition = new Vector3(0f, 0.0045f, 0.0015f);
             woodBundle = woodRoot;
 
             // 2. Gold Ore Sack (for Mine peasants)
@@ -322,6 +300,7 @@ namespace HoldTheTable
             gk.Ball(new Vector3(-0.0025f, 0.0195f, 0.0095f), 0.0052f, gold);
             gk.Ball(new Vector3(0.0025f, 0.019f, 0.0105f), 0.0048f, gold);
             gk.Ball(new Vector3(0f, 0.0205f, 0.008f), 0.0044f, new Color(1f, 0.9f, 0.35f));
+            goldRoot.localPosition = new Vector3(0f, 0.0045f, 0.0015f);
             goldSack = goldRoot;
 
             // 3. Panic Visual Cue: bright floating "!" icon + raised panicked arms
@@ -329,13 +308,10 @@ namespace HoldTheTable
             var pk = new BuildingVisuals.Kit(panicRoot);
             Color alertColor = new Color(1f, 0.25f, 0.12f);
             Color alertRim = new Color(1f, 0.92f, 0.2f);
-            // Raised little arms
-            pk.CylRot(new Vector3(-0.008f, 0.020f, 0f), 0.0018f, 0.011f, cloth, new Vector3(0f, 0f, 25f));
-            pk.CylRot(new Vector3(0.008f, 0.020f, 0f), 0.0018f, 0.011f, cloth, new Vector3(0f, 0f, -25f));
             // Floating exclamation mark "!" above head
-            pk.Box(new Vector3(0f, 0.043f, 0f), new Vector3(0.0036f, 0.011f, 0.0036f), alertRim);
-            pk.Box(new Vector3(0f, 0.043f, 0f), new Vector3(0.0026f, 0.0095f, 0.0042f), alertColor);
-            pk.Ball(new Vector3(0f, 0.034f, 0f), 0.0042f, alertRim);
+            pk.Box(new Vector3(0f, 0.054f, 0f), new Vector3(0.0036f, 0.011f, 0.0036f), alertRim);
+            pk.Box(new Vector3(0f, 0.054f, 0f), new Vector3(0.0026f, 0.0095f, 0.0042f), alertColor);
+            pk.Ball(new Vector3(0f, 0.045f, 0f), 0.0042f, alertRim);
             panicCue = panicRoot;
 
             return root;
@@ -344,6 +320,7 @@ namespace HoldTheTable
         void SetCargo(PeasantCargo cargo)
         {
             Cargo = cargo;
+            if (rig != null) rig.ShowTool(cargo == PeasantCargo.None);
             if (woodBundleRoot != null) woodBundleRoot.gameObject.SetActive(cargo == PeasantCargo.WoodLogs);
             if (goldSackRoot != null) goldSackRoot.gameObject.SetActive(cargo == PeasantCargo.GoldOre);
         }
@@ -475,6 +452,7 @@ namespace HoldTheTable
                     {
                         State = PeasantState.HarvestingAtNode;
                         stateTimer = HarvestDuration;
+                        workClock = 0f;
                     }
                     break;
                 }
@@ -482,11 +460,13 @@ namespace HoldTheTable
                 case PeasantState.HarvestingAtNode:
                 {
                     Face(AssignedBuilding.transform.position - transform.position, up, dt);
-                    bobPhase += dt * 18f;
+                    workClock += dt;
+                    if (rig != null) rig.Work(workClock, 0.45f);
                     if (bobRoot != null)
                     {
-                        bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.003f, 0f);
-                        bobRoot.localRotation = Quaternion.Euler(Mathf.Sin(bobPhase) * 12f, 0f, 0f);
+                        float sw = Mathf.Sin(workClock * (Mathf.PI * 2f / 0.45f));
+                        bobRoot.localPosition = Vector3.zero;
+                        bobRoot.localRotation = Quaternion.Euler(8f + sw * 7f, 0f, 0f);
                     }
                     stateTimer -= dt;
                     if (stateTimer <= 0f)
@@ -582,11 +562,17 @@ namespace HoldTheTable
             transform.position = next;
             Face(dir, up, dt);
 
+            bobPhase += dt * 16f * animRate;
+            bool panicking = State == PeasantState.PanickingToHall;
+            if (rig != null)
+            {
+                if (panicking) rig.Panic(bobPhase * 1.4f);
+                else rig.Walk(bobPhase * 0.75f, 1f, Cargo != PeasantCargo.None);
+            }
             if (bobRoot != null)
             {
-                bobPhase += dt * 16f * animRate;
-                bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.0035f, 0f);
-                bobRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(bobPhase) * (State == PeasantState.PanickingToHall ? 14f : 7f));
+                bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase * 0.75f)) * 0.0020f, 0f);
+                bobRoot.localRotation = Quaternion.Euler(Cargo != PeasantCargo.None ? -6f : 2f, 0f, Mathf.Sin(bobPhase * 0.75f) * (panicking ? 9f : 3.5f));
             }
 
             return dist <= speed * dt + 0.012f;

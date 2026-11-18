@@ -17,6 +17,12 @@ namespace HoldTheTable
         public const float ClothWidth = 0.16f;
         public const float ClothHeight = 0.11f;
         const int NX = 22, NY = 14;
+        /// <summary>Label base height above the pole top (m); clears cloth, finial and the hall roof.</summary>
+        public const float LabelAbovePoleTop = 0.26f;
+        public const float LabelFontSize = 0.32f;
+        public const float LabelOutlineWidth = 0.28f;
+        public const float PlaqueHeight = 0.05f;
+        public const float PlaqueRimPad = 0.008f;
 
         public static BannerRenderer Current { get; private set; }
 
@@ -256,7 +262,7 @@ namespace HoldTheTable
             var lr = new GameObject("NameLabel");
             labelRoot = lr.transform;
             labelRoot.SetParent(transform, false);
-            labelRoot.localPosition = new Vector3(ClothWidth * 0.5f, PoleHeight - 0.02f - ClothHeight - 0.036f, 0f);
+            labelRoot.localPosition = new Vector3(ClothWidth * 0.5f, PoleHeight + LabelAbovePoleTop, 0f);
 
             // outer antique brass frame behind the walnut nameplate
             var rimGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -266,7 +272,7 @@ namespace HoldTheTable
             plaqueRim = rimGo.transform;
             plaqueRim.SetParent(labelRoot, false);
             plaqueRim.localPosition = new Vector3(0f, 0f, 0.003f);
-            plaqueRim.localScale = new Vector3(0.170f, 0.042f, 1f);
+            plaqueRim.localScale = new Vector3(0.2f, PlaqueHeight + PlaqueRimPad, 1f);
             var rmr = rimGo.GetComponent<MeshRenderer>();
             rmr.sharedMaterial = Mats.Unlit(new Color(0.80f, 0.64f, 0.28f));
             rmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -279,7 +285,7 @@ namespace HoldTheTable
             plaque = pq.transform;
             plaque.SetParent(labelRoot, false);
             plaque.localPosition = new Vector3(0f, 0f, 0.002f);
-            plaque.localScale = new Vector3(0.16f, 0.036f, 1f);
+            plaque.localScale = new Vector3(0.19f, PlaqueHeight, 1f);
             var pmr = pq.GetComponent<MeshRenderer>();
             pmr.sharedMaterial = Mats.Unlit(new Color(0.18f, 0.11f, 0.07f));
             pmr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -289,13 +295,15 @@ namespace HoldTheTable
             tgo.transform.SetParent(labelRoot, false);
             label = tgo.AddComponent<TextMeshPro>();
             if (TMP_Settings.defaultFontAsset != null) label.font = TMP_Settings.defaultFontAsset;
-            label.rectTransform.sizeDelta = new Vector2(0.5f, 0.04f);
-            label.fontSize = 0.23f;
-            label.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            label.rectTransform.sizeDelta = new Vector2(0.7f, PlaqueHeight);
+            label.fontSize = LabelFontSize;
+            label.fontStyle = FontStyles.Bold;
             label.alignment = TextAlignmentOptions.Center;
             label.textWrappingMode = TextWrappingModes.NoWrap;
             label.overflowMode = TextOverflowModes.Overflow;
             label.color = new Color(0.95f, 0.88f, 0.70f);
+            label.outlineWidth = LabelOutlineWidth;
+            label.outlineColor = new Color32(20, 10, 4, 255);
             label.text = "";
             var tr = label.GetComponent<MeshRenderer>();
             if (tr != null) { tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off; tr.receiveShadows = false; }
@@ -316,9 +324,9 @@ namespace HoldTheTable
                 string name = p.DisplayName;
                 label.text = name;
                 label.ForceMeshUpdate();
-                float w = Mathf.Clamp(label.preferredWidth + 0.024f, 0.07f, 0.6f);
-                if (plaque != null) plaque.localScale = new Vector3(w, 0.036f, 1f);
-                if (plaqueRim != null) plaqueRim.localScale = new Vector3(w + 0.009f, 0.042f, 1f);
+                float w = Mathf.Clamp(label.preferredWidth + 0.034f, 0.09f, 0.8f);
+                if (plaque != null) plaque.localScale = new Vector3(w, PlaqueHeight, 1f);
+                if (plaqueRim != null) plaqueRim.localScale = new Vector3(w + PlaqueRimPad, PlaqueHeight + PlaqueRimPad, 1f);
             }
         }
 

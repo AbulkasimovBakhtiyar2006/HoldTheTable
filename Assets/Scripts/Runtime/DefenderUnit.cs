@@ -24,7 +24,7 @@ namespace HoldTheTable
         public const float SwordsmanReach = 0.032f;
         public const float InterceptRange = 0.34f;
         public const float CounterDamageFactor = 0.55f;
-        const float SeparationRadius = 0.026f;
+        const float SeparationRadius = UnitScale.SeparationRadius;
         const float AttackInterval = 0.75f;
 
         /// <summary>All currently active friendly defenders on the table.</summary>
@@ -41,10 +41,10 @@ namespace HoldTheTable
         public Vector3 HomePosition { get; private set; }
         public Vector3 PatrolWaypoint { get; private set; }
         public bool IsAlive => launched && !dying && health != null && !health.IsDead;
-        public float Radius => 0.015f;
+        public float Radius => UnitScale.SoldierRadius * UnitScale.Soldier(Kind);
         public float MeleeReach => Kind == DefenderKind.Spearman ? SpearmanReach : SwordsmanReach;
         public float MeleeDps => (Kind == DefenderKind.Spearman ? SpearmanDps : SwordsmanDps) * GetDamageMultiplier();
-        public Vector3 AimPoint => transform.position + transform.up * 0.018f;
+        public Vector3 AimPoint => transform.position + transform.up * UnitScale.AimHeight;
 
         Transform visualRoot;
         Transform bobRoot;
@@ -220,97 +220,258 @@ namespace HoldTheTable
             return Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) < 0.02f;
         }
 
+        // ------------------------------------------------------------ soldier visuals
+        static readonly Color Skin = new Color(0.93f, 0.77f, 0.62f);
+        static readonly Color Steel = new Color(0.74f, 0.77f, 0.82f);
+        static readonly Color DarkSteel = new Color(0.30f, 0.33f, 0.38f);
+        static readonly Color Leather = new Color(0.36f, 0.24f, 0.13f);
+        static readonly Color Wood = new Color(0.50f, 0.33f, 0.16f);
+        static readonly Color Gold = new Color(0.95f, 0.78f, 0.25f);
+        static readonly Color EyeCol = new Color(0.08f, 0.08f, 0.10f);
+
+        /// <summary>Merges all direct mesh children of root into one mesh per material (build-time only, no per-frame cost).</summary>
+        public static void CombineByMaterial(Transform root)
+        {
+            var groups = new Dictionary<Material, List<CombineInstance>>();
+            var kill = new List<GameObject>();
+            Matrix4x4 w2l = root.worldToLocalMatrix;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var c = root.GetChild(i);
+                var mf = c.GetComponent<MeshFilter>();
+                var mr = c.GetComponent<MeshRenderer>();
+                if (mf == null || mr == null || mf.sharedMesh == null || mr.sharedMaterial == null) continue;
+                if (!groups.TryGetValue(mr.sharedMaterial, out var list)) { list = new List<CombineInstance>(); groups[mr.sharedMaterial] = list; }
+                list.Add(new CombineInstance { mesh = mf.sharedMesh, transform = w2l * c.localToWorldMatrix });
+                kill.Add(c.gameObject);
+            }
+            foreach (var g in kill) UnityEngine.Object.DestroyImmediate(g);
+            foreach (var kv in groups)
+            {
+                var mesh = new Mesh { name = "soldierPart" };
+                mesh.CombineMeshes(kv.Value.ToArray(), true, true);
+                var go = new GameObject("part");
+                go.transform.SetParent(root, false);
+                go.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = kv.Key;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                r.lightProbeUsage = UnityEngine.Rendering.LightProbeUsage.Off;
+                r.reflectionProbeUsage = UnityEngine.Rendering.ReflectionProbeUsage.Off;
+            }
+        }
+
+        /// <summary>Legs, boots, torso, neck, arms, head+face shared by every civ; style tunes proportions/colors.</summary>
+        static void BuildBody(BuildingVisuals.Kit k, ArchitectureStyle style, BuildingVisuals.Palette pal, bool bareLegs)
+        {
+            Color legC = style == ArchitectureStyle.StoneTowers ? DarkSteel : (style == ArchitectureStyle.Timber ? Leather : new Color(0.20f, 0.12f, 0.10f));
+            Color bootC = style == ArchitectureStyle.StoneTowers ? Steel : Leather;
+            // legs + boots + cuffs
+            for (int s = -1; s <= 1; s += 2)
+            {
+                float x = s * 0.0042f;
+                k.Cyl(new Vector3(x, 0.004f, 0f), 0.0027f, 0.008f, legC);
+                k.Ellipsoid(new Vector3(x, 0.0025f, 0.0015f), new Vector3(0.0058f, 0.0055f, 0.0098f), bootC);
+                k.Cyl(new Vector3(x, 0.0055f, 0f), 0.0032f, 0.0025f, style == ArchitectureStyle.TieredRoofs ? pal.trim : pal.dark);
+            }
+            // torso (tapered: hips + chest) + neck
+            k.Cyl(new Vector3(0f, 0.0085f, 0f), 0.0072f, 0.005f, pal.main);
+            k.Cyl(new Vector3(0f, 0.0125f, 0f), 0.0078f, 0.0085f, style == ArchitectureStyle.StoneTowers ? Steel : pal.main);
+            k.Cyl(new Vector3(0f, 0.0205f, 0f), 0.0026f, 0.0028f, Skin);
+            // belt + buckle
+            k.Cyl(new Vector3(0f, 0.0105f, 0f), 0.0081f, 0.0022f, style == ArchitectureStyle.Timber ? Leather : pal.dark);
+            k.Box(new Vector3(0f, 0.0116f, 0.0081f), new Vector3(0.0034f, 0.0030f, 0.0014f), pal.trim);
+            // head, ears hint, eyes
+            k.Ball(new Vector3(0f, 0.0252f, 0f), UnitScale.HeadDiameter, Skin);
+            k.Ball(new Vector3(-0.0026f, 0.0256f, 0.0049f), 0.0021f, EyeCol);
+            k.Ball(new Vector3(0.0026f, 0.0256f, 0.0049f), 0.0021f, EyeCol);
+            k.Box(new Vector3(0f, 0.0236f, 0.0057f), new Vector3(0.0016f, 0.0016f, 0.0016f), new Color(0.85f, 0.65f, 0.52f)); // nose
+        }
+
+        /// <summary>Civ-specific torso dressing, tabard, pauldrons and helmet.</summary>
+        static void BuildArmorAndHelm(BuildingVisuals.Kit k, ArchitectureStyle style, BuildingVisuals.Palette pal, bool archer)
+        {
+            switch (style)
+            {
+                case ArchitectureStyle.TieredRoofs:
+                    // Celestial: lamellar robe, flared skirt, gold sash, wide pauldron plates, upturned conical hat with tassel
+                    k.Cone(new Vector3(0f, 0.0035f, 0f), 0.0092f, 0.0085f, pal.main);                 // flared robe skirt
+                    k.Cyl(new Vector3(0f, 0.0035f, 0f), 0.0094f, 0.0012f, pal.trim);                  // hem trim
+                    k.Box(new Vector3(0f, 0.0142f, 0.0072f), new Vector3(0.0065f, 0.0105f, 0.0016f), pal.banner);     // chest tabard
+                    k.Box(new Vector3(0f, 0.0142f, -0.0072f), new Vector3(0.0075f, 0.0105f, 0.0016f), pal.banner);
+                    k.Box(new Vector3(0f, 0.0142f, 0.0079f), new Vector3(0.0014f, 0.0095f, 0.0008f), pal.trim);       // gold seam
+                    k.Cyl(new Vector3(0f, 0.0104f, 0f), 0.0084f, 0.0026f, Gold);                                        // sash
+                    k.Box(new Vector3(-0.0088f, 0.0178f, 0f), new Vector3(0.0062f, 0.0024f, 0.0085f), pal.trim, new Vector3(0f, 0f, 14f));
+                    k.Box(new Vector3(0.0088f, 0.0178f, 0f), new Vector3(0.0062f, 0.0024f, 0.0085f), pal.trim, new Vector3(0f, 0f, -14f));
+                    k.Cone(new Vector3(0f, 0.0292f, 0f), 0.0100f, 0.0085f, pal.roof);                  // conical hat
+                    k.Cyl(new Vector3(0f, 0.0284f, 0f), 0.0104f, 0.0011f, pal.trim);                   // brim
+                    k.Ball(new Vector3(0f, 0.0382f, 0f), 0.0030f, Gold);                               // finial
+                    k.Box(new Vector3(0f, 0.0345f, -0.0062f), new Vector3(0.0018f, 0.0070f, 0.0018f), pal.banner, new Vector3(-20f, 0f, 0f)); // hanging tassel
+                    break;
+                case ArchitectureStyle.Timber:
+                    // Verdant: leather jerkin, fur mantle, banner sash cloak, leafy hood and antler/leaf crest
+                    k.Cyl(new Vector3(0f, 0.0055f, 0f), 0.0086f, 0.004f, Leather);                      // kilt
+                    for (int i = 0; i < 6; i++)                                                         // leather tabs
+                    {
+                        float a = i * 60f * Mathf.Deg2Rad;
+                        k.Box(new Vector3(Mathf.Sin(a) * 0.0085f, 0.0045f, Mathf.Cos(a) * 0.0085f), new Vector3(0.0035f, 0.0045f, 0.0012f), pal.dark, new Vector3(0f, i * 60f, 0f));
+                    }
+                    k.Box(new Vector3(0f, 0.0142f, 0.0076f), new Vector3(0.0050f, 0.0100f, 0.0014f), pal.banner);     // sash front
+                    k.Box(new Vector3(0f, 0.0160f, -0.0070f), new Vector3(0.0100f, 0.0130f, 0.0018f), pal.banner);    // short cloak back
+                    k.Ellipsoid(new Vector3(-0.0088f, 0.0176f, 0f), new Vector3(0.0072f, 0.0046f, 0.0072f), pal.trim);   // fur mantle
+                    k.Ellipsoid(new Vector3(0.0088f, 0.0176f, 0f), new Vector3(0.0072f, 0.0046f, 0.0072f), pal.trim);
+                    k.Cyl(new Vector3(0f, 0.0192f, 0f), 0.0062f, 0.0020f, pal.trim);                      // collar
+                    k.Ellipsoid(new Vector3(0f, 0.0286f, -0.0008f), new Vector3(0.0128f, 0.0078f, 0.0128f), pal.main);   // hood/cap
+                    k.Box(new Vector3(0f, 0.0338f, 0f), new Vector3(0.0022f, 0.0050f, 0.0100f), pal.banner);            // crest
+                    k.Box(new Vector3(-0.0050f, 0.0345f, 0f), new Vector3(0.0014f, 0.0075f, 0.0014f), pal.dark, new Vector3(0f, 0f, 25f)); // antler tines
+                    k.Box(new Vector3(0.0050f, 0.0345f, 0f), new Vector3(0.0014f, 0.0075f, 0.0014f), pal.dark, new Vector3(0f, 0f, -25f));
+                    break;
+                default:
+                    // Iron: plate cuirass, mail skirt, banner surcoat with trim cross, steel pauldrons, great helm with visor and crest
+                    k.Cyl(new Vector3(0f, 0.0040f, 0f), 0.0086f, 0.0050f, DarkSteel);                    // mail skirt
+                    k.Box(new Vector3(0f, 0.0132f, 0.0081f), new Vector3(0.0100f, 0.0120f, 0.0016f), pal.banner);       // surcoat front
+                    k.Box(new Vector3(0f, 0.0132f, -0.0081f), new Vector3(0.0100f, 0.0120f, 0.0016f), pal.banner);
+                    k.Box(new Vector3(0f, 0.0140f, 0.0091f), new Vector3(0.0016f, 0.0090f, 0.0008f), pal.trim);         // cross
+                    k.Box(new Vector3(0f, 0.0152f, 0.0091f), new Vector3(0.0060f, 0.0016f, 0.0008f), pal.trim);
+                    k.Ellipsoid(new Vector3(-0.0090f, 0.0178f, 0f), new Vector3(0.0070f, 0.0058f, 0.0070f), Steel);     // pauldrons
+                    k.Ellipsoid(new Vector3(0.0090f, 0.0178f, 0f), new Vector3(0.0070f, 0.0058f, 0.0070f), Steel);
+                    k.Cyl(new Vector3(0f, 0.0192f, 0f), 0.0050f, 0.0020f, Steel);                         // gorget
+                    k.Cyl(new Vector3(0f, 0.0228f, 0f), 0.0066f, 0.0084f, Steel);                         // great helm
+                    k.Ellipsoid(new Vector3(0f, 0.0318f, 0f), new Vector3(0.0128f, 0.0060f, 0.0128f), Steel);
+                    k.Box(new Vector3(0f, 0.0262f, 0.0064f), new Vector3(0.0075f, 0.0014f, 0.0012f), EyeCol);           // visor slit
+                    k.Box(new Vector3(0f, 0.0240f, 0.0066f), new Vector3(0.0014f, 0.0040f, 0.0010f), DarkSteel);        // breath bar
+                    k.Box(new Vector3(0f, 0.0355f, -0.0005f), new Vector3(0.0024f, 0.0050f, 0.0100f), pal.banner);      // crest
+                    break;
+            }
+        }
+
         /// <summary>Builds a procedural miniature soldier wearing the civilization's armor style and banner colors.</summary>
         public static Transform BuildSoldierVisual(Transform parent, DefenderKind kind, ArchitectureStyle style, BuildingVisuals.Palette pal, out Transform weaponPivotOut)
         {
             var root = BuildingVisuals.NewRoot(parent, kind.ToString());
+            root.localScale = Vector3.one * UnitScale.Soldier(kind);
+            root.localPosition = new Vector3(0f, UnitScale.GroundOffset, 0f);
             var k = new BuildingVisuals.Kit(root);
 
-            Color skin = new Color(0.93f, 0.77f, 0.62f);
-            Color iron = new Color(0.72f, 0.74f, 0.78f);
-            Color darkIron = new Color(0.32f, 0.34f, 0.38f);
-            Color wood = new Color(0.46f, 0.30f, 0.15f);
+            BuildBody(k, style, pal, false);
+            BuildArmorAndHelm(k, style, pal, false);
 
-            // Boots
-            k.Ellipsoid(new Vector3(-0.0045f, 0.0025f, 0.001f), new Vector3(0.0055f, 0.005f, 0.009f), pal.dark);
-            k.Ellipsoid(new Vector3(0.0045f, 0.0025f, 0.001f), new Vector3(0.0055f, 0.005f, 0.009f), pal.dark);
+            // Left arm (shield arm): upper arm + hand
+            Color sleeve = style == ArchitectureStyle.StoneTowers ? Steel : (style == ArchitectureStyle.Timber ? Leather : pal.main);
+            k.CylRot(new Vector3(-0.0092f, 0.0152f, 0.0020f), 0.0020f, 0.0070f, sleeve, new Vector3(-42f, 0f, 0f));
+            k.Ball(new Vector3(-0.0096f, 0.0125f, 0.0045f), 0.0032f, style == ArchitectureStyle.StoneTowers ? DarkSteel : Skin);
 
-            // Tunic & torso armor in civilization + banner colors
-            k.Cyl(new Vector3(0f, 0.004f, 0f), 0.0075f, 0.015f, pal.main);
-            // Banner tabard / surcoat front & back
-            k.Box(new Vector3(0f, 0.011f, 0.0068f), new Vector3(0.009f, 0.013f, 0.0025f), pal.banner);
-            k.Box(new Vector3(0f, 0.011f, -0.0068f), new Vector3(0.010f, 0.014f, 0.0025f), pal.banner);
-            // Belt with civilization accent buckle
-            k.Cyl(new Vector3(0f, 0.0095f, 0f), 0.008f, 0.0025f, pal.dark);
-            k.Box(new Vector3(0f, 0.0107f, 0.0078f), new Vector3(0.0035f, 0.003f, 0.0015f), pal.trim);
-
-            // Pauldrons (shoulders)
-            k.Ball(new Vector3(-0.0085f, 0.017f, 0f), 0.0055f, style == ArchitectureStyle.StoneTowers ? iron : pal.trim);
-            k.Ball(new Vector3(0.0085f, 0.017f, 0f), 0.0055f, style == ArchitectureStyle.StoneTowers ? iron : pal.trim);
-
-            // Head & eyes
-            k.Ball(new Vector3(0f, 0.0235f, 0f), 0.0115f, skin);
-            k.Ball(new Vector3(-0.0026f, 0.024f, 0.0052f), 0.0022f, new Color(0.1f, 0.1f, 0.12f));
-            k.Ball(new Vector3(0.0026f, 0.024f, 0.0052f), 0.0022f, new Color(0.1f, 0.1f, 0.12f));
-
-            // Civilization-specific helmet
+            // Shield on left arm (-X), civ motif
+            bool spear = kind == DefenderKind.Spearman;
             switch (style)
             {
                 case ArchitectureStyle.TieredRoofs:
-                    // Celestial Dynasty conical helm with banner plume
-                    k.Cone(new Vector3(0f, 0.0265f, 0f), 0.0085f, 0.008f, pal.roof);
-                    k.Cyl(new Vector3(0f, 0.026f, 0f), 0.0088f, 0.0015f, pal.trim);
-                    k.Ball(new Vector3(0f, 0.035f, 0f), 0.0038f, pal.banner);
+                    // round lacquered shield, gold rim, sun boss, banner ring
+                    k.CylRot(new Vector3(-0.0112f, 0.0135f, 0.0050f), spear ? 0.0072f : 0.0066f, 0.0020f, pal.trim, new Vector3(0f, 0f, 90f));
+                    k.CylRot(new Vector3(-0.0120f, 0.0135f, 0.0050f), spear ? 0.0058f : 0.0053f, 0.0016f, pal.banner, new Vector3(0f, 0f, 90f));
+                    k.Ball(new Vector3(-0.0128f, 0.0135f, 0.0050f), 0.0034f, Gold);
                     break;
                 case ArchitectureStyle.Timber:
-                    // Verdant Clans crested timber/bronze helm
-                    k.Ellipsoid(new Vector3(0f, 0.027f, 0f), new Vector3(0.0125f, 0.008f, 0.0125f), pal.dark);
-                    k.Box(new Vector3(0f, 0.031f, 0f), new Vector3(0.0025f, 0.005f, 0.011f), pal.banner);
+                    // wooden round shield with plank ribs, banner center, leaf boss
+                    k.CylRot(new Vector3(-0.0112f, 0.0135f, 0.0050f), spear ? 0.0072f : 0.0066f, 0.0020f, Wood, new Vector3(0f, 0f, 90f));
+                    k.Box(new Vector3(-0.0123f, 0.0135f, 0.0050f), new Vector3(0.0010f, 0.0030f, 0.0110f), pal.banner);
+                    k.Box(new Vector3(-0.0123f, 0.0135f, 0.0050f), new Vector3(0.0010f, 0.0110f, 0.0030f), pal.banner);
+                    k.Ball(new Vector3(-0.0127f, 0.0135f, 0.0050f), 0.0030f, pal.trim);
                     break;
                 default:
-                    // Iron Dominion great-helm with banner crest
-                    k.Cyl(new Vector3(0f, 0.024f, 0f), 0.0064f, 0.008f, iron);
-                    k.Box(new Vector3(0f, 0.026f, 0.0062f), new Vector3(0.007f, 0.0016f, 0.0015f), darkIron);
-                    k.Ball(new Vector3(0f, 0.033f, 0f), 0.0042f, pal.banner);
+                    // heater shield: steel rim, banner field, trim cross
+                    k.Box(new Vector3(-0.0112f, 0.0135f, 0.0050f), new Vector3(0.0022f, 0.0150f, 0.0105f), Steel, new Vector3(0f, -12f, 0f));
+                    k.Box(new Vector3(-0.0122f, 0.0135f, 0.0052f), new Vector3(0.0014f, 0.0128f, 0.0082f), pal.banner, new Vector3(0f, -12f, 0f));
+                    k.Box(new Vector3(-0.0129f, 0.0135f, 0.0053f), new Vector3(0.0010f, 0.0100f, 0.0016f), pal.trim, new Vector3(0f, -12f, 0f));
+                    k.Box(new Vector3(-0.0129f, 0.0145f, 0.0053f), new Vector3(0.0010f, 0.0016f, 0.0066f), pal.trim, new Vector3(0f, -12f, 0f));
+                    k.Ellipsoid(new Vector3(-0.0112f, 0.0070f, 0.0040f), new Vector3(0.0020f, 0.0030f, 0.0050f), Steel); // tapered tip
                     break;
             }
+            CombineByMaterial(root);
 
-            // Shield on left arm (-X) painted in player's banner & trim colors
-            if (kind == DefenderKind.Spearman)
-            {
-                // Round targe shield
-                k.CylRot(new Vector3(-0.010f, 0.013f, 0.004f), 0.0065f, 0.0022f, pal.banner, new Vector3(0f, 20f, 90f));
-                k.Ball(new Vector3(-0.011f, 0.013f, 0.0045f), 0.0035f, pal.trim);
-            }
-            else
-            {
-                // Heater / tower shield with emblem stripe
-                k.Box(new Vector3(-0.0105f, 0.013f, 0.005f), new Vector3(0.0025f, 0.014f, 0.010f), pal.banner, new Vector3(0f, -15f, 0f));
-                k.Box(new Vector3(-0.0115f, 0.013f, 0.0052f), new Vector3(0.0015f, 0.010f, 0.0035f), pal.trim, new Vector3(0f, -15f, 0f));
-            }
-
-            // Weapon pivot on right hand (+X) for animated melee strikes
+            // Weapon pivot on right hand (+X) for animated melee strikes (includes sleeve + hand so the arm swings with it)
             var wp = BuildingVisuals.NewRoot(root, "WeaponPivot");
             wp.localPosition = new Vector3(0.0095f, 0.013f, 0.003f);
             var wk = new BuildingVisuals.Kit(wp);
+            wk.CylRot(new Vector3(-0.0004f, 0.0022f, -0.0017f), 0.0020f, 0.0058f, sleeve, new Vector3(-37f, 0f, 0f));
+            wk.Ball(Vector3.zero, 0.0032f, style == ArchitectureStyle.StoneTowers ? DarkSteel : Skin);
 
-            if (kind == DefenderKind.Spearman)
+            if (spear)
             {
-                // Long spear pointed forward-up + small banner pennant under spearhead
-                wk.CylRot(new Vector3(0f, 0.002f, 0.008f), 0.0012f, 0.038f, wood, new Vector3(68f, 0f, 0f));
-                wk.Cone(new Vector3(0f, 0.0088f, 0.024f), 0.0024f, 0.007f, iron).transform.localRotation = Quaternion.Euler(68f, 0f, 0f);
-                wk.Box(new Vector3(0f, 0.0055f, 0.019f), new Vector3(0.0012f, 0.0045f, 0.006f), pal.banner);
+                // spear shaft along the lean axis (68 deg), civ-specific head, tassel/feather/pennant
+                Vector3 e = new Vector3(68f, 0f, 0f);
+                wk.CylRot(new Vector3(0f, 0.0020f, 0.0080f), 0.0011f, 0.0400f, Wood, e);
+                switch (style)
+                {
+                    case ArchitectureStyle.TieredRoofs:
+                        wk.Cone(new Vector3(0f, 0.0090f, 0.0225f), 0.0022f, 0.0085f, Steel).transform.localRotation = Quaternion.Euler(e);
+                        wk.Ball(new Vector3(0f, 0.0083f, 0.0205f), 0.0030f, pal.banner);                       // red tassel
+                        wk.Box(new Vector3(0f, 0.0060f, 0.0182f), new Vector3(0.0010f, 0.0045f, 0.0012f), pal.banner, e);
+                        break;
+                    case ArchitectureStyle.Timber:
+                        wk.Ellipsoid(new Vector3(0f, 0.0092f, 0.0228f), new Vector3(0.0034f, 0.0030f, 0.0100f), pal.trim).transform.localRotation = Quaternion.Euler(e); // leaf blade
+                        wk.Box(new Vector3(0.0012f, 0.0058f, 0.0170f), new Vector3(0.0008f, 0.0050f, 0.0030f), pal.banner, new Vector3(68f, 0f, 20f)); // feather
+                        break;
+                    default:
+                        wk.Cone(new Vector3(0f, 0.0088f, 0.0222f), 0.0030f, 0.0100f, Steel).transform.localRotation = Quaternion.Euler(e);
+                        wk.Box(new Vector3(0f, 0.0075f, 0.0200f), new Vector3(0.0070f, 0.0012f, 0.0012f), DarkSteel, e); // lugs
+                        wk.Box(new Vector3(0f, 0.0058f, 0.0182f), new Vector3(0.0012f, 0.0050f, 0.0070f), pal.banner);   // pennant
+                        break;
+                }
             }
             else
             {
-                // Broadsword with crossguard
-                wk.CylRot(new Vector3(0f, 0f, 0.002f), 0.0012f, 0.006f, pal.dark, new Vector3(45f, 0f, 0f));
-                wk.Box(new Vector3(0f, 0.0025f, 0.0045f), new Vector3(0.006f, 0.0016f, 0.002f), pal.trim, new Vector3(45f, 0f, 0f));
-                wk.Box(new Vector3(0f, 0.0095f, 0.0115f), new Vector3(0.0018f, 0.0032f, 0.018f), iron, new Vector3(-45f, 0f, 0f));
+                // sword: pommel, grip, crossguard, blade (shape per civ)
+                Vector3 e = new Vector3(-45f, 0f, 0f);
+                wk.Ball(new Vector3(0f, -0.0012f, -0.0014f), 0.0026f, style == ArchitectureStyle.TieredRoofs ? pal.banner : pal.trim);
+                wk.CylRot(new Vector3(0f, 0f, 0.0020f), 0.0011f, 0.0060f, pal.dark, new Vector3(45f, 0f, 0f));
+                switch (style)
+                {
+                    case ArchitectureStyle.TieredRoofs: // slim straight jian with gold guard + tassel
+                        wk.Box(new Vector3(0f, 0.0028f, 0.0048f), new Vector3(0.0050f, 0.0014f, 0.0018f), Gold, new Vector3(45f, 0f, 0f));
+                        wk.Box(new Vector3(0f, 0.0105f, 0.0125f), new Vector3(0.0014f, 0.0030f, 0.0200f), Steel, e);
+                        wk.Box(new Vector3(0f, -0.0006f, -0.0030f), new Vector3(0.0010f, 0.0050f, 0.0010f), pal.banner);
+                        break;
+                    case ArchitectureStyle.Timber: // short broad leaf blade, bronze guard
+                        wk.Box(new Vector3(0f, 0.0028f, 0.0048f), new Vector3(0.0050f, 0.0014f, 0.0018f), pal.trim, new Vector3(45f, 0f, 0f));
+                        wk.Ellipsoid(new Vector3(0f, 0.0095f, 0.0115f), new Vector3(0.0034f, 0.0030f, 0.0150f), new Color(0.80f, 0.62f, 0.30f)).transform.localRotation = Quaternion.Euler(e);
+                        break;
+                    default: // longsword with wide crossguard and fuller
+                        wk.Box(new Vector3(0f, 0.0028f, 0.0048f), new Vector3(0.0090f, 0.0016f, 0.0020f), DarkSteel, new Vector3(45f, 0f, 0f));
+                        wk.Box(new Vector3(0f, 0.0108f, 0.0128f), new Vector3(0.0022f, 0.0034f, 0.0210f), Steel, e);
+                        wk.Box(new Vector3(0f, 0.0110f, 0.0128f), new Vector3(0.0008f, 0.0036f, 0.0180f), DarkSteel, e);
+                        break;
+                }
             }
+            CombineByMaterial(wp);
 
             weaponPivotOut = wp;
             return root;
+        }
+
+        /// <summary>Tower archer (UnitScale.ArcherMul), standing at 'at' on the tower platform: civ garb, hood/helm, quiver, bow with string.</summary>
+        public static void BuildArcherVisual(Transform parent, Vector3 at, ArchitectureStyle style, BuildingVisuals.Palette pal)
+        {
+            var root = BuildingVisuals.NewRoot(parent, "Archer");
+            root.localPosition = at;
+            root.localScale = Vector3.one * UnitScale.ArcherMul;
+            var k = new BuildingVisuals.Kit(root);
+            BuildBody(k, style, pal, false);
+            BuildArmorAndHelm(k, style, pal, true);
+            Color sleeve = style == ArchitectureStyle.StoneTowers ? Steel : (style == ArchitectureStyle.Timber ? Leather : pal.main);
+            k.Cyl(new Vector3(0.0072f, 0.0100f, -0.0030f), 0.0030f, 0.0100f, Leather);                 // hip quiver
+            k.Box(new Vector3(0.0072f, 0.0205f, -0.0030f), new Vector3(0.0012f, 0.0035f, 0.0012f), pal.banner); // arrow fletch
+            k.CylRot(new Vector3(-0.0090f, 0.0150f, 0.0030f), 0.0020f, 0.0075f, sleeve, new Vector3(-55f, 0f, 0f));
+            k.CylRot(new Vector3(0.0092f, 0.0160f, 0.0020f), 0.0020f, 0.0075f, sleeve, new Vector3(-30f, 0f, 0f));
+            // bow (vertical limb arc via 3 segments) + string
+            Color bowC = style == ArchitectureStyle.StoneTowers ? DarkSteel : (style == ArchitectureStyle.Timber ? pal.trim : pal.dark);
+            k.CylRot(new Vector3(-0.0098f, 0.0140f, 0.0085f), 0.0010f, 0.0100f, bowC, new Vector3(0f, 0f, 0f));
+            k.CylRot(new Vector3(-0.0098f, 0.0200f, 0.0070f), 0.0009f, 0.0070f, bowC, new Vector3(-30f, 0f, 0f));
+            k.CylRot(new Vector3(-0.0098f, 0.0080f, 0.0070f), 0.0009f, 0.0070f, bowC, new Vector3(30f, 0f, 0f));
+            k.Box(new Vector3(-0.0098f, 0.0140f, 0.0048f), new Vector3(0.0003f, 0.0125f, 0.0003f), new Color(0.9f, 0.88f, 0.8f)); // string
+            k.CylRot(new Vector3(-0.0098f, 0.0140f, 0.0065f), 0.0004f, 0.0110f, Wood, new Vector3(90f, 0f, 0f));     // nocked arrow
+            CombineByMaterial(root);
         }
 
         ITableSurface CurrentSurface()
@@ -677,8 +838,9 @@ namespace HoldTheTable
         {
             if (bobRoot == null) return;
             bobPhase += dt * 15f * Mathf.Max(0.4f, rate);
-            bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.0038f, 0f);
-            bobRoot.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(bobPhase) * 6f);
+            float s = Mathf.Sin(bobPhase);
+            bobRoot.localPosition = new Vector3(0f, Mathf.Abs(s) * 0.0042f, 0f);
+            bobRoot.localRotation = Quaternion.Euler(4f, s * 3f, s * 6f); // forward lean + sway
         }
 
         void AnimateIdle(float dt)
@@ -687,29 +849,33 @@ namespace HoldTheTable
             bobPhase += dt * 3.5f;
             bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.0012f, 0f);
             bobRoot.localRotation = Quaternion.Lerp(bobRoot.localRotation, Quaternion.identity, Mathf.Min(1f, dt * 8f));
+            if (weaponPivot != null)
+                weaponPivot.localRotation = Quaternion.Slerp(weaponPivot.localRotation, Quaternion.Euler(Mathf.Sin(bobPhase * 0.5f) * 3f, 0f, 0f), Mathf.Min(1f, dt * 6f));
         }
 
         void AnimateCombat(float dt, float swingPhase01)
         {
+            // wind-up (0..0.3) then strike (0.3..1) of the compressed attack window
+            float f = Mathf.Clamp01(swingPhase01 * 2.2f);
+            float wind = f < 0.3f ? Mathf.Sin(f / 0.3f * Mathf.PI * 0.5f) : 0f;
+            float strike = f < 0.3f ? 0f : Mathf.Sin((f - 0.3f) / 0.7f * Mathf.PI);
             if (bobRoot != null)
             {
                 bobPhase += dt * 10f;
-                bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.002f, 0f);
-                bobRoot.localRotation = Quaternion.identity;
+                bobRoot.localPosition = new Vector3(0f, Mathf.Abs(Mathf.Sin(bobPhase)) * 0.0016f, strike * 0.0025f);
+                bobRoot.localRotation = Quaternion.Euler(strike * 9f - wind * 4f, 0f, 0f); // lunge forward, lean back on wind-up
             }
             if (weaponPivot != null)
             {
-                // Thrust/slash forward during the strike window
-                float strike = Mathf.Sin(Mathf.Clamp01(swingPhase01 * 2.2f) * Mathf.PI);
                 if (Kind == DefenderKind.Spearman)
                 {
-                    weaponPivot.localPosition = new Vector3(0.0095f, 0.013f, 0.003f + strike * 0.009f);
-                    weaponPivot.localRotation = Quaternion.Euler(strike * 18f, 0f, 0f);
+                    weaponPivot.localPosition = new Vector3(0.0095f, 0.013f, 0.003f + strike * 0.011f - wind * 0.004f);
+                    weaponPivot.localRotation = Quaternion.Euler(strike * 14f - wind * 8f, 0f, 0f);
                 }
                 else
                 {
-                    weaponPivot.localPosition = new Vector3(0.0095f, 0.013f, 0.003f + strike * 0.005f);
-                    weaponPivot.localRotation = Quaternion.Euler(strike * 55f, -strike * 25f, 0f);
+                    weaponPivot.localPosition = new Vector3(0.0095f, 0.013f + wind * 0.003f, 0.003f + strike * 0.005f);
+                    weaponPivot.localRotation = Quaternion.Euler(-wind * 50f + strike * 85f, -strike * 25f, wind * 10f);
                 }
             }
         }

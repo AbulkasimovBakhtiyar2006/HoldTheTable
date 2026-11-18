@@ -817,6 +817,7 @@ namespace HoldTheTable
 
             if (fatalFall)
             {
+                MonsterUnit.ReportFellOff(m);
                 if (m.health != null && !m.health.IsDead)
                     m.health.Damage(999f);
                 return;

@@ -48,72 +48,48 @@ namespace HoldTheTable
             var root = (RectTransform)canvas.transform;
             content = UiKit.Rect(root, "UpgradeContent", Vector2.zero, new Vector2(900f, 420f));
 
-            // Carved walnut & antique brass frame (fits inside 900x420 with clean margins)
             UiKit.FramedPanel(content, "UpgradeFrame", Vector2.zero, new Vector2(900f, 420f),
-                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.Gold, 8f, true);
+                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.WalnutFrame, 3f);
 
-            // Royal crimson header banner
-            var headerRibbon = UiKit.Panel(content, new Vector2(0f, 168f), new Vector2(840f, 44f), UiKit.RubricCrimson);
-            headerRibbon.name = "HeaderRibbon";
-            headerRibbon.GetComponent<Image>().raycastTarget = false;
-            var hRim = headerRibbon.gameObject.AddComponent<Outline>();
-            hRim.effectColor = UiKit.Gold;
-            hRim.effectDistance = new Vector2(1.5f, -1.5f);
-
-            headerText = UiKit.Label(content, Strings.QuartermasterGreeting, new Vector2(0f, 168f), new Vector2(810f, 40f), 30);
-            headerText.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            headerText = UiKit.Label(content, Strings.QuartermasterGreeting, new Vector2(0f, 168f), new Vector2(820f, 48f), UiKit.FontHeading);
+            headerText.fontStyle = FontStyles.Bold;
             headerText.color = UiKit.GoldBright;
 
             for (int i = 0; i < 2; i++)
             {
                 int idx = i;
-                var card = UiKit.Button(content, string.Empty, new Vector2(i == 0 ? -212f : 212f, 12f), new Vector2(404f, 244f), () => Pick(idx), 30);
-                UiKit.SetButtonColor(card, UiKit.Parchment);
+                var card = UiKit.Button(content, string.Empty, new Vector2(i == 0 ? -212f : 212f, 20f), new Vector2(404f, 236f), () => Pick(idx), 30);
+                UiKit.SetButtonColor(card, UiKit.ParchmentLight);
                 var crt = (RectTransform)card.transform;
-                // remove the default label created by UiKit (empty), use title + description instead
                 var defaultLabel = card.GetComponentInChildren<TMP_Text>(true);
                 if (defaultLabel != null) defaultLabel.gameObject.SetActive(false);
 
-                // Inner vellum frame + corner brass studs + crimson decree stripe
-                var innerWell = UiKit.Panel(crt, Vector2.zero, new Vector2(388f, 228f), UiKit.ParchmentLight);
-                innerWell.name = "CardInner";
-                innerWell.GetComponent<Image>().raycastTarget = false;
-                var innerRim = innerWell.gameObject.AddComponent<Outline>();
-                innerRim.effectColor = UiKit.BronzeShadow;
-                innerRim.effectDistance = new Vector2(1.5f, -1.5f);
-                UiKit.CornerGems(crt, 12f, 7f, UiKit.Gold);
-
-                var topStripe = UiKit.Panel(crt, new Vector2(0f, 98f), new Vector2(364f, 6f), UiKit.RubricCrimson);
+                var topStripe = UiKit.Panel(crt, new Vector2(0f, 100f), new Vector2(120f, 8f), UiKit.RubricCrimson);
                 topStripe.GetComponent<Image>().raycastTarget = false;
 
-                titles[i] = UiKit.Label(crt, string.Empty, new Vector2(0f, 54f), new Vector2(364f, 64f), 32);
+                titles[i] = UiKit.Label(crt, string.Empty, new Vector2(0f, 48f), new Vector2(364f, 70f), UiKit.FontHeading - 2);
                 titles[i].fontStyle = FontStyles.Bold;
-                titles[i].color = UiKit.RubricCrimson;
+                titles[i].color = UiKit.Ink;
+                titles[i].enableAutoSizing = true; titles[i].fontSizeMin = 22; titles[i].fontSizeMax = UiKit.FontHeading - 2;
 
-                UiKit.Divider(crt, new Vector2(0f, 12f), 330f, true);
-
-                descs[i] = UiKit.Label(crt, string.Empty, new Vector2(0f, -48f), new Vector2(364f, 100f), 25);
-                descs[i].color = UiKit.Ink;
+                descs[i] = UiKit.Label(crt, string.Empty, new Vector2(0f, -42f), new Vector2(364f, 110f), UiKit.FontCaption + 1);
+                descs[i].color = UiKit.InkMuted;
                 cards[i] = card;
             }
 
-            // Timer bar framed inside the lower panel (y = -138, well inside -202 inner bottom border)
-            var barBg = UiKit.Panel(content, new Vector2(0f, -138f), new Vector2(828f, 18f), UiKit.WalnutFrame);
+            // timer bar
+            var barBg = UiKit.Panel(content, new Vector2(0f, -128f), new Vector2(828f, 12f), new Color(1f, 1f, 1f, 0.14f));
             barBg.GetComponent<Image>().raycastTarget = false;
-            var barRim = barBg.gameObject.AddComponent<Outline>();
-            barRim.effectColor = UiKit.BronzeShadow;
-            barRim.effectDistance = new Vector2(1.5f, -1.5f);
 
-            timerFill = UiKit.Panel(barBg, new Vector2(2f, 0f), new Vector2(824f, 14f), UiKit.GoldBright);
+            timerFill = UiKit.Panel(barBg, new Vector2(0f, 0f), new Vector2(828f, 12f), UiKit.GoldBright);
             timerFill.GetComponent<Image>().raycastTarget = false;
             timerFill.anchorMin = new Vector2(0f, 0.5f);
             timerFill.anchorMax = new Vector2(0f, 0.5f);
             timerFill.pivot = new Vector2(0f, 0.5f);
-            timerFill.anchoredPosition = new Vector2(2f, 0f);
+            timerFill.anchoredPosition = new Vector2(0f, 0f);
 
-            skipText = UiKit.Label(content, string.Empty, new Vector2(0f, -172f), new Vector2(820f, 28f), 21);
-            skipText.fontStyle = FontStyles.Italic;
-            skipText.color = UiKit.Parchment;
+            skipText = UiKit.Label(content, string.Empty, new Vector2(0f, -168f), new Vector2(820f, 34f), UiKit.FontCaption);
+            skipText.color = new Color(0.72f, 0.68f, 0.60f);
         }
 
         public void Show(UpgradeOption a, UpgradeOption b, Action<int> onPick)
@@ -128,7 +104,7 @@ namespace HoldTheTable
             cards[0].interactable = cards[1].interactable = true;
             shownAt = Time.time;
             lastSecs = -1;
-            timerFill.sizeDelta = new Vector2(824f, 14f);
+            timerFill.sizeDelta = new Vector2(828f, 12f);
             if (autoPlaceInFront) PlaceInFront();
             content.gameObject.SetActive(true);
         }
@@ -150,7 +126,7 @@ namespace HoldTheTable
         {
             if (content == null || !content.gameObject.activeSelf) return;
             float left = Mathf.Max(0f, timerSeconds - (Time.time - shownAt));
-            timerFill.sizeDelta = new Vector2(824f * (left / timerSeconds), 14f);
+            timerFill.sizeDelta = new Vector2(828f * (left / timerSeconds), 12f);
             int secs = Mathf.CeilToInt(left);
             if (secs != lastSecs)
             {

@@ -291,11 +291,11 @@ namespace HoldTheTable
             Color iron = new Color(0.72f, 0.74f, 0.78f);
 
             // Training dummy: upright post, cross-arms, straw torso with banner target band, straw head, mini shield
-            k.Cyl(dummyPos, 0.0022f, 0.028f, wood);
+            k.Cyl(dummyPos, 0.0022f, 0.034f, wood);
             k.Cyl(dummyPos + new Vector3(0f, 0.008f, 0f), 0.0055f, 0.013f, straw);
             k.Cyl(dummyPos + new Vector3(0f, 0.012f, 0f), 0.0058f, 0.004f, p.banner);
             k.CylRot(dummyPos + new Vector3(0f, 0.017f, 0f), 0.0016f, 0.018f, wood, new Vector3(0f, 0f, 90f));
-            k.Ball(dummyPos + new Vector3(0f, 0.025f, 0f), 0.0075f, straw);
+            k.Ball(dummyPos + new Vector3(0f, 0.0305f, 0f), UnitScale.HeadDiameter, straw);
             k.CylRot(dummyPos + new Vector3(-0.008f, 0.016f, 0.002f), 0.0045f, 0.0018f, p.trim, new Vector3(0f, 15f, 90f));
 
             // Weapon rack: two A-frame posts + crossbar + 3 upright spears

@@ -28,6 +28,7 @@ Final APK: `/Users/abulkasimovbakhtiyar/IdeaProjects/TableCiv/Builds/HoldTheTabl
 | R9 | Scroll + HUD spawn near the player on a head orbit (not on the floor) | PASS | build4; device screenshot 23:07: scroll right of view at eye level, HUD low-left with grab bar; no exceptions. Moving them by hand along the orbit: NOT RUN (needs headset) |
 | R10 | Iteration 2 build (system keyboard, banner layers, corner spawns, rotation) | PASS (build) | build6.log `result=Succeeded errors=0`, Validator PASS, manifest has `oculus.software.overlay_keyboard` + `USE_SCENE`; installed. Runtime log NOT RUN: headset in STANDBY (proximity) |
 | R11 | Iteration 3 build (climbing/ropes/ladders, free-floor portals, grab fix, clutter check, wall lines, economy, music+SFX) | PASS (build + startup) | build8.log `result=Succeeded errors=0`, Validator PASS (5 tray slots); device log 00:01: no exceptions, 3 surfaces, `[RoomCornerSpawns] portals=1 area=11.3m²`. Hands-only play of these features: NOT RUN |
+| R12 | Swarm build (CombatJuice, TacticalAdvisor, WorldEvents, HolographicRadar; GetInstanceID fix; GameDirector.AddTimber) | PASS (build + install) | Logs/validator_swarm.log Validator PASS; Logs/build_swarm.log `result=Succeeded errors=0`, APK 76.7 MB; installed on 340YC10G9L06GW, process alive. Logs/device/swarm_logcat.txt: only benign xrGetInstanceProcAddr ErrorFunctionUnsupported warnings; headset ASLEEP so features NOT RUN visually |
 | R8 | Batchmode exit code | NOTE | build3: `result=Succeeded` but Unity process exit 134 (abort during editor shutdown after build); APK valid and installed |
 
 ## Hands-only gameplay & acceptance tests (require a person in the headset)
@@ -44,3 +45,20 @@ Final APK: `/Users/abulkasimovbakhtiyar/IdeaProjects/TableCiv/Builds/HoldTheTabl
 | A1 | OVRSpatialAnchor on founded hall | NOT RUN | logged at founding; needs H1 |
 
 Not verified ≠ done: Definition of Done is NOT met until H1–H7 pass in the headset (P1 passed via the automated stress hook). The 4 `Exception:` lines in Logs/device/stress_logcat.txt are Unity's AssetPackManager probe and the system PackageIntegrityClient (pid 3920), not game code.
+
+## Swarm round (Miracles / Warlords / Trophies / Chronicle / Wonders)
+- Compile (batchmode build, Logs/build_fix2.log): PASS - 0 error CS, only FindFirstObjectByType deprecation warnings.
+- Android build: PASS - Builds/HoldTheTable.apk (~76.7 MB), "Build Finished, Result: Success."
+- Install/launch on Quest, runtime log: NOT RUN
+- Hero slam / meteor / dome gestures on device: NOT RUN (palm-axis and thresholds unverified)
+- Warlord behaviors, trophy unlocks, chronicle panel position, wonders in play: NOT RUN
+- 30-unit 60 fps profile with new features: NOT RUN
+- Validator updated for new types: NOT DONE
+
+## Swarm round 2 (Harpooner / UnitScale / Radar / Anti-Air)
+- Batchmode build (Logs/build_swarm2.log): PASS - "Build Finished, Result: Success.", Builds/HoldTheTable.apk 76.8 MB
+- On-device install, harpooner ropes, anti-air shooting, radar look, troop sizes: NOT RUN
+
+## Swarm round 3 (civ unit redesign)
+- Batchmode build (Logs/build_swarm3.log): PASS - "Build Finished, Result: Success.", APK 76.8 MB. Unity process exit code was 134 (abort at shutdown) although the build result is Success.
+- Visual check on device (proportions, tool/hat placement, hero look), draw-call/fps impact of ~35-primitive workers: NOT RUN

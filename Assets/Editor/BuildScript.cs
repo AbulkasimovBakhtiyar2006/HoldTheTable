@@ -33,6 +33,27 @@ public static class BuildScript
                 options = BuildOptions.None
             };
             EditorUserBuildSettings.buildAppBundle = false;
+            // Meta Dashboard validation requires android:screenOrientation="landscape" in the manifest.
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+
+            // Release signing: keystore path/password come from the environment, never from the repo.
+            string ks = Environment.GetEnvironmentVariable("HTT_KEYSTORE");
+            if (!string.IsNullOrEmpty(ks) && File.Exists(ks))
+            {
+                string pass = Environment.GetEnvironmentVariable("HTT_KEYPASS") ?? "";
+                PlayerSettings.Android.useCustomKeystore = true;
+                PlayerSettings.Android.keystoreName = ks;
+                PlayerSettings.Android.keystorePass = pass;
+                PlayerSettings.Android.keyaliasName = Environment.GetEnvironmentVariable("HTT_KEYALIAS") ?? "holdthetable";
+                PlayerSettings.Android.keyaliasPass = pass;
+                Debug.Log("[BuildScript] release keystore in use: " + Path.GetFileName(ks));
+            }
+            else
+            {
+                PlayerSettings.Android.useCustomKeystore = false; // a stale release keystore in ProjectSettings must not break debug/device builds
+                Debug.LogWarning("[BuildScript] HTT_KEYSTORE not set: APK will be debug-signed.");
+            }
+
             var report = BuildPipeline.BuildPlayer(opts);
             var s = report.summary;
             Debug.Log($"[BuildScript] result={s.result} size={s.totalSize} errors={s.totalErrors} time={s.totalTime} path={Path.GetFullPath(ApkPath)}");

@@ -41,6 +41,12 @@ namespace HoldTheTable
         bool roomMode;
         float floorY;
         int engineersLeft;
+        // harpooners / climb squad (table mode)
+        public const float HarpoonHoldMax = 7f, HarpoonStartDist = 1.1f, TableFloorDrop = 0.75f;
+        int harpoonersLeft, harpoonerIndex, tableSquadLeft;
+        float harpTimer, holdUntil, climbFloorY;
+        bool climbMode;
+        Vector3 squadOrigin;
         Vector3 hallPos;
         ITableSurface surface;
 
@@ -75,11 +81,12 @@ namespace HoldTheTable
             timer = 0.4f;
             running = true;
             ComputeSpawnPoints();
+            SetupHarpooners();
             // engineers (room mode, raised hall only): 1 in wave 2, 2 in wave 3, spawned first, in addition to the count
             engineersLeft = 0;
+            if (ClimbRoutes.Instance != null) ClimbRoutes.Instance.OnWaveStart();
             if (roomMode)
             {
-                if (ClimbRoutes.Instance != null) ClimbRoutes.Instance.OnWaveStart();
                 bool raised = surface != null && surface.Pose.position.y > floorY + 0.15f;
                 if (raised) engineersLeft = waveIndex == 1 ? 1 : waveIndex >= 2 ? 2 : 0;
             }
@@ -93,13 +100,32 @@ namespace HoldTheTable
         public void StopWave()
         {
             running = false;
+            harpoonersLeft = 0;
+            tableSquadLeft = 0;
             toSpawn = 0;
             spawned = 0;
         }
 
         void Update()
         {
-            if (!running || spawned >= toSpawn) return;
+            if (!running) return;
+            // Harpooners always go first: one per wave minimum, more on bigger waves.
+            if (harpoonersLeft > 0)
+            {
+                harpTimer -= Time.deltaTime;
+                if (harpTimer <= 0f)
+                {
+                    harpTimer = 0.5f;
+                    SpawnHarpooner();
+                    harpoonersLeft--;
+                    holdUntil = Time.time + HarpoonHoldMax;
+                }
+                return;
+            }
+            if (spawned >= toSpawn) return;
+            // main troops wait (bounded) until the harpoon ropes are up, so everyone climbs a rope from the start
+            var cr0 = ClimbRoutes.Existing;
+            if (cr0 != null && cr0.PendingRopeCount > 0 && Time.time < holdUntil) return;
             timer -= Time.deltaTime;
             if (timer > 0f) return;
             timer = spawnInterval;
@@ -120,6 +146,17 @@ namespace HoldTheTable
                 return;
             }
             SplinePath path;
+            if (!ram && tableSquadLeft > 0 && climbMode)
+            {
+                // table mode: part of the wave arrives from the floor and must climb the harpoon rope
+                tableSquadLeft--;
+                Vector3 sp = squadOrigin + new Vector3(Random.Range(-0.12f, 0.12f), 0f, Random.Range(-0.12f, 0.12f));
+                sp.y = climbFloorY;
+                if (VfxPool.Instance != null) VfxPool.Instance.Ring(sp + Vector3.up * 0.01f, 0.2f);
+                var mc = MonsterUnit.Spawn(SplinePath.BuildRoute(sp, hallPos, surface, climbFloorY), false);
+                if (mc == null) Debug.LogWarning("[WaveSpawner] climber spawn returned null");
+                return;
+            }
             if (roomMode)
             {
                 // round-robin across the room-corner portals
@@ -140,6 +177,50 @@ namespace HoldTheTable
                 RamSpawned?.Invoke();
                 if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.WaveStart, pos);
             }
+        }
+
+        void SetupHarpooners()
+        {
+            harpoonersLeft = 0; tableSquadLeft = 0; harpoonerIndex = 0; harpTimer = 0f; holdUntil = 0f; climbMode = false;
+            if (surface == null) return;
+            if (roomMode) climbFloorY = floorY;
+            else climbFloorY = surface.Pose.position.y - TableFloorDrop; // table mode: floor ~75 cm below the tabletop
+            climbMode = surface.Pose.position.y > climbFloorY + 0.15f;
+            if (!climbMode) return;
+            harpoonersLeft = Mathf.Clamp(1 + waveIndex, 1, 3);
+            if (!roomMode) tableSquadLeft = Mathf.Min(4, Mathf.Max(2, toSpawn / 3));
+        }
+
+        void SpawnHarpooner()
+        {
+            if (surface == null) return;
+            var cr = ClimbRoutes.Instance;
+            if (cr == null) return;
+            Vector3 corner;
+            if (roomMode && spawnPoints.Count > 0)
+            {
+                corner = spawnPoints[(nextPoint + harpoonerIndex) % spawnPoints.Count];
+            }
+            else
+            {
+                Vector3 away = Vector3.forward;
+                var cam = Camera.main;
+                if (cam != null) { away = hallPos - cam.transform.position; away.y = 0f; }
+                if (away.sqrMagnitude < 1e-4f) away = Vector3.forward;
+                corner = hallPos + (Quaternion.Euler(0f, harpoonerIndex * 50f - 25f, 0f) * away.normalized) * 1.6f;
+            }
+            corner.y = climbFloorY;
+            var site = cr.ReserveRopeSite(corner, hallPos, surface, climbFloorY, harpoonerIndex);
+            harpoonerIndex++;
+            if (site == null) return;
+            // start within HarpoonStartDist of the firing spot so the rope goes up within seconds
+            Vector3 toCorner = corner - site.shootPos; toCorner.y = 0f;
+            Vector3 start = toCorner.magnitude > HarpoonStartDist ? site.shootPos + toCorner.normalized * HarpoonStartDist : corner;
+            start.y = climbFloorY;
+            if (harpoonerIndex == 1) squadOrigin = start;
+            if (VfxPool.Instance != null) VfxPool.Instance.Ring(start + Vector3.up * 0.01f, 0.2f);
+            var m = MonsterUnit.SpawnHarpooner(start, site, hallPos, surface, climbFloorY);
+            if (m == null) cr.ScheduleFallbackRope(site, 0.1f);
         }
 
         /// <summary>Local battlefield boundary around the hall, restricted to supported surface points.</summary>

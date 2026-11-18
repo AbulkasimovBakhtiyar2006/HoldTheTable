@@ -70,6 +70,7 @@ namespace HoldTheTable
             go.transform.SetPositionAndRotation(pos, rot);
             var u = go.AddComponent<PlacedUnit>();
             u.Init(type, CurrentCiv());
+            if (type == UnitType.AntiAir) AntiAirTower.Attach(u, CurrentCiv());
             units.Add(u);
             return u;
         }
@@ -87,7 +88,9 @@ namespace HoldTheTable
         /// <summary>Visual-only half-scale unit (e.g. for tray tokens / ghosts). No colliders, no logic.</summary>
         public GameObject BuildMiniUnit(Transform parent, UnitType type, float scale = 0.5f)
         {
-            var root = BuildingVisuals.BuildUnit(parent, type, CurrentCiv(), out _);
+            Transform root;
+            if (type == UnitType.AntiAir) root = AntiAirTower.BuildVisual(parent, CurrentCiv(), out _, out _, out _);
+            else root = BuildingVisuals.BuildUnit(parent, type, CurrentCiv(), out _);
             root.name = "Mini" + type;
             root.localScale = Vector3.one * scale;
             BuildingVisuals.StripColliders(root.gameObject);
@@ -108,6 +111,7 @@ namespace HoldTheTable
                 if (units[i] != null) Destroy(units[i].gameObject);
             units.Clear();
             Projectile.DespawnAll();
+            AntiAirTower.DespawnAllMissiles();
         }
 
         public void DestroyTownHall()

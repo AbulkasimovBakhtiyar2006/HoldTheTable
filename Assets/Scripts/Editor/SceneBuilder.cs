@@ -113,26 +113,26 @@ namespace HoldTheTable.EditorTools
             trayBase.name = "TrayBase";
             Object.DestroyImmediate(trayBase.GetComponent<Collider>());
             trayBase.transform.SetParent(tray.transform, false);
-            trayBase.transform.localScale = new Vector3(0.36f, 0.012f, 0.08f);
+            trayBase.transform.localScale = new Vector3(0.40f, 0.012f, 0.08f);
             trayBase.GetComponent<MeshRenderer>().sharedMaterial = TrayMaterial();
-            string[] types = { "Wall", "ArcherTower", "Barricade", "Farm", "Mine" };
+            string[] types = { "Wall", "ArcherTower", "Barricade", "Farm", "Mine", "AntiAir" };
             for (int i = 0; i < types.Length; i++)
             {
                 var slot = new GameObject("Slot_" + types[i]);
                 slot.transform.SetParent(tray.transform, false);
-                slot.transform.localPosition = new Vector3(-0.14f + 0.07f * i, 0.008f, 0);
+                slot.transform.localPosition = new Vector3(-0.15f + 0.06f * i, 0.008f, 0);
                 var tok = new GameObject("Token_" + types[i]);
                 tok.transform.SetParent(slot.transform, false);
                 var c = tok.AddComponent<BoxCollider>(); c.size = new Vector3(0.05f, 0.06f, 0.05f); c.center = new Vector3(0, 0.03f, 0);
                 Grab(tok);
                 Add(tok, "GrabWatcher");
                 var ts = Add(slot, "TraySlot");
-                SetEnum(ts, "type", i);
+                SetEnum(ts, "type", types[i] == "AntiAir" ? 6 : i);
                 Set(ts, "token", tok);
             }
             Set(foundation, "trayRoot", tray.transform);
             Set(Add(tray, "TrayVisibility"), "baseRenderer", trayBase.GetComponent<MeshRenderer>());
-            tray.SetActive(true);
+            tray.SetActive(false); // building selection lives on the wrist BuildPanel; tray stays as an inactive anchor
 
             // ---------- HUD / Upgrade / End canvases ----------
             var hudRoot = new GameObject("DiegeticHud");

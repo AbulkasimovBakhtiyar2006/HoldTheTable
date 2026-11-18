@@ -17,7 +17,7 @@ namespace HoldTheTable
         /// <summary>Economy income sums are recomputed at most this often (seconds).</summary>
         const float RateRefreshInterval = 0.25f;
         public const float BuildDuration = 12f;
-        public const float BannerSideOffset = 0.13f;
+        public const float BannerSideOffset = 0.205f; // was 0.13 (+7.5 cm)
         public const int WaveCount = 3;
         /// <summary>Safety net if the Quartermaster never reports back.</summary>
         const float UpgradeSafetyTimeout = QuartermasterAgent.AutoSkipSeconds + 4f;
@@ -28,6 +28,8 @@ namespace HoldTheTable
         public float Timber { get; private set; }
         public float Gold { get; private set; }
         /// <summary>Current timber income per second: base 6 + Σ farms × Harvest multiplier.</summary>
+        public void AddTimber(float amount) { if (amount > 0f) Timber += amount; }
+
         public float TimberRate { get; private set; } = TimberPerSecond;
         /// <summary>Current gold income per second: Σ mines × Harvest multiplier.</summary>
         public float GoldRate { get; private set; }

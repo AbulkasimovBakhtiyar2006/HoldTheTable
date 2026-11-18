@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace HoldTheTable
 {
-    public enum MonsterKind { Normal, Ram, Engineer }
+    public enum MonsterKind { Normal, Ram, Engineer, Harpooner }
 
     /// <summary>
     /// Pooled procedural monster. Follows a typed SplinePath (floor → around/over furniture → climb / rope / ladder →
@@ -27,6 +27,9 @@ namespace HoldTheTable
 
         public static readonly List<MonsterUnit> Active = new List<MonsterUnit>();
         public static event Action<MonsterUnit> Killed;
+        /// <summary>Raised once when a monster is shoved/thrown off the supported table outline (WarChronicleTracker).</summary>
+        public static event Action<MonsterUnit> FellOffTable;
+        public static void ReportFellOff(MonsterUnit m) { FellOffTable?.Invoke(m); }
 
         static SimplePool<MonsterUnit> pool;
         static Transform poolRoot;
@@ -36,6 +39,8 @@ namespace HoldTheTable
         public MonsterKind Kind { get; private set; }
         public bool IsRam => Kind == MonsterKind.Ram;
         public bool IsEngineer => Kind == MonsterKind.Engineer;
+        public bool IsHarpooner => Kind == MonsterKind.Harpooner;
+        HarpoonerUnit harp;
         public SplinePath Path { get; private set; }
         /// <summary>Ladder this engineer is walking to / building (null otherwise).</summary>
         public ClimbAccess EngineerLadder { get; private set; }
@@ -45,7 +50,7 @@ namespace HoldTheTable
         public float Radius => IsRam ? 0.03f : 0.015f;
         public Vector3 AimPoint => transform.position + transform.up * (IsRam ? 0.025f : 0.017f);
 
-        Transform normalVisual, ramVisual, engineerVisual, bob;
+        Transform normalVisual, ramVisual, engineerVisual, harpoonerVisual, bob;
         bool launched, dying;
         float pathDist, attackTimer, bobPhase, fallT, buildT;
         Vector3 pushVel;
@@ -55,7 +60,7 @@ namespace HoldTheTable
         PathSegment lastSeg;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics() { Active.Clear(); Killed = null; pool = null; poolRoot = null; serialCounter = 0; }
+        static void ResetStatics() { Active.Clear(); Killed = null; FellOffTable = null; pool = null; poolRoot = null; serialCounter = 0; }
 
         // ------------------------------------------------------------ pool
         static void EnsurePool(int prewarm)
@@ -106,6 +111,39 @@ namespace HoldTheTable
             return m;
         }
 
+        /// <summary>Harpooner: runs to its rope site, fires a harpoon (rope appears instantly), then climbs it. Always works on a raised hall.</summary>
+        public static MonsterUnit SpawnHarpooner(Vector3 start, ClimbAccess site, Vector3 hall, ITableSurface hallSurface, float floorY)
+        {
+            var cr = ClimbRoutes.Instance;
+            if (cr == null || site == null) return null;
+            SplinePath path = cr.FloorRoute(start, site.shootPos, hallSurface, floorY);
+            var m = Get();
+            m.Launch(path, MonsterKind.Harpooner);
+            m.harp.Begin(site, hall, hallSurface, floorY);
+            return m;
+        }
+
+        /// <summary>Replaces the current route (harpooner after its shot).</summary>
+        internal void AssignPath(SplinePath p)
+        {
+            if (p == null) return;
+            Path = p; pathDist = 0f; pushTime = 0f;
+            transform.position = p.EvaluateDistance(0f);
+            lastSeg = p.SegmentAt(0f);
+        }
+
+        internal void FaceToward(Vector3 dir, float dt) => Face(dir, Vector3.up, dt);
+        internal void AnimateRate(float dt, float rate) => Animate(dt, rate);
+
+        /// <summary>A new rope appeared: floor walkers heading for a bare climb on the same surface re-plan onto it.</summary>
+        public void RefreshRoute(ClimbAccess rope)
+        {
+            if (!launched || dying || falling || Path == null || rope == null || Kind == MonsterKind.Engineer || Kind == MonsterKind.Harpooner) return;
+            if (!Path.BareClimb || Path.Surface == null || Path.Surface.Id != rope.surfaceId) return;
+            if (Segment != PathSegment.Floor) return;
+            Replan(transform.position);
+        }
+
         static MonsterUnit Create()
         {
             if (poolRoot == null) poolRoot = new GameObject("MonsterPool").transform;
@@ -118,6 +156,8 @@ namespace HoldTheTable
             m.normalVisual = BuildGoblin(m.bob);
             m.ramVisual = BuildRam(m.bob);
             m.engineerVisual = BuildEngineer(m.bob);
+            m.harpoonerVisual = HarpoonerUnit.BuildVisual(m.bob);
+            m.harp = go.AddComponent<HarpoonerUnit>();
             go.SetActive(false);
             return m;
         }
@@ -191,10 +231,12 @@ namespace HoldTheTable
             EngineerLadder = null;
             buildT = 0f;
             Serial = ++serialCounter;
-            health.Init(kind == MonsterKind.Ram ? RamHp : kind == MonsterKind.Engineer ? EngineerHp : NormalHp);
+            health.Init(kind == MonsterKind.Ram ? RamHp : kind == MonsterKind.Engineer ? EngineerHp : kind == MonsterKind.Harpooner ? HarpoonerUnit.Hp : NormalHp);
             normalVisual.gameObject.SetActive(kind == MonsterKind.Normal);
             ramVisual.gameObject.SetActive(kind == MonsterKind.Ram);
             engineerVisual.gameObject.SetActive(kind == MonsterKind.Engineer);
+            harpoonerVisual.gameObject.SetActive(kind == MonsterKind.Harpooner);
+            if (harp != null) harp.ResetState();
             pathDist = 0f;
             attackTimer = 0.5f;
             pushTime = 0f;
@@ -230,6 +272,7 @@ namespace HoldTheTable
             if (EngineerLadder != null && !EngineerLadder.complete && ClimbRoutes.Existing != null)
                 ClimbRoutes.Existing.Abandon(EngineerLadder); // unfinished ladder collapses with its builder
             EngineerLadder = null;
+            if (harp != null) harp.OnOwnerDied();
             if (VfxPool.Instance != null) VfxPool.Instance.Burst(AimPoint, IsRam ? new Color(0.5f, 0.35f, 0.2f) : new Color(0.4f, 0.8f, 0.3f));
             if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.Death);
             Killed?.Invoke(this);
@@ -262,6 +305,7 @@ namespace HoldTheTable
                 m.dying = false;
                 m.falling = false;
                 m.EngineerLadder = null;
+                if (m.harp != null) m.harp.ResetState();
                 if (pool != null) pool.Release(m); else m.gameObject.SetActive(false);
             }
             Active.Clear();
@@ -357,6 +401,13 @@ namespace HoldTheTable
                 ClimbRoutes.Existing.AddRope(Path.Surface.Id, Path.BareClimbTop, Path.BareClimbBottom, Path.ClimbOutward, Path.BareClimbApproach);
             lastSeg = seg;
 
+            // harpooner: shoot the rope at the climb edge first (instant rope), then climb it
+            if (Kind == MonsterKind.Harpooner && harp != null && harp.IsActive)
+            {
+                bool atSite = pathDist >= Path.Length - 0.004f;
+                if (harp.Tick(this, dt, atSite)) return;
+            }
+
             // engineer at its ladder site: build for 6 s, then climb it and attack
             if (EngineerLadder != null && pathDist >= Path.Length - 0.003f)
             {
@@ -397,6 +448,7 @@ namespace HoldTheTable
                     if (!surface.IsPointSupported(proj))
                     {
                         falling = true;
+                        FellOffTable?.Invoke(this);
                         fallT = 0f;
                         fallVel = pushVel * 0.6f;
                         transform.position = pos;
@@ -475,6 +527,7 @@ namespace HoldTheTable
                     break;
             }
             float speed = baseSpeed * (IsRam ? 0.5f : 1f) * speedMul;
+            if (Kind == MonsterKind.Harpooner && seg == PathSegment.Floor && harp != null && harp.IsActive) speed *= HarpoonerUnit.RunSpeedMul;
             float look = seg == PathSegment.Floor || seg == PathSegment.Top ? 0.06f : 0.02f;
             // never look ahead across a segment boundary (keeps corners and climbs crisp)
             float lookD = Mathf.Min(pathDist + look, Path.RunEnd(pathDist));

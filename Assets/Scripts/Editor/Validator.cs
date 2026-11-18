@@ -66,7 +66,7 @@ namespace HoldTheTable.EditorTools
             if (traySlot != null)
             {
                 int n = UnityEngine.Object.FindObjectsByType(traySlot, FindObjectsInactive.Include, FindObjectsSortMode.None).Length;
-                if (n != 5) issues.Add("expected 5 TraySlots (wall, tower, barricade, farm, mine), found " + n);
+                if (n != 6) issues.Add("expected 6 TraySlots (wall, tower, barricade, farm, mine, anti-air), found " + n);
             }
             try
             {

@@ -111,9 +111,9 @@ namespace HoldTheTable
             if (Mathf.Abs(local.y) > 0.15f) return false;
             if (type == UnitType.Wall)
                 return Mathf.Abs(local.x) <= UnitDef.WallLength * 0.5f + pad && Mathf.Abs(local.z) <= UnitDef.WallThickness * 0.5f + pad;
-            if (type == UnitType.ArcherTower || type == UnitType.Farm || type == UnitType.Mine || BarracksSpawner.IsBarracksType(type))
+            if (type == UnitType.ArcherTower || type == UnitType.AntiAir || type == UnitType.Farm || type == UnitType.Mine || BarracksSpawner.IsBarracksType(type))
             {
-                float r = (type == UnitType.ArcherTower ? 0.026f : BarracksSpawner.IsBarracksType(type) ? 0.038f : 0.035f) + pad;
+                float r = ((type == UnitType.ArcherTower || type == UnitType.AntiAir) ? 0.026f : BarracksSpawner.IsBarracksType(type) ? 0.038f : 0.035f) + pad;
                 return local.x * local.x + local.z * local.z <= r * r;
             }
             return false; // barricades slow, they do not block

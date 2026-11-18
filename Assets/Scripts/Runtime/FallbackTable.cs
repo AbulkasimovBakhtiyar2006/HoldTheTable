@@ -61,7 +61,7 @@ namespace HoldTheTable
             var go = GameObject.CreatePrimitive(type);
             go.name = n;
             var col = go.GetComponent<Collider>();
-            if (col != null) Destroy(col);
+            if (col != null) DestroyImmediate(col);
             go.transform.SetParent(transform, false);
             go.transform.localPosition = localPos;
             go.transform.localScale = localScale;

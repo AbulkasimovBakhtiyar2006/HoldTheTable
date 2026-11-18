@@ -14,6 +14,7 @@ namespace HoldTheTable
         public const string CivIronDesc = "Stone towers and iron gates. Walls that never fall.";
         public const string Next = "Next";
         public const string Back = "Back";
+        public const string RollUp = "Roll up";
         public const string NameYourEmpire = "Name your empire";
         public const string Space = "Space";
         public const string Backspace = "Del";
@@ -73,7 +74,7 @@ namespace HoldTheTable
         public const string Shift = "Shift";
         public const string SummaryCivilization = "Civilization: {0}";
         public const string ShockwaveHint = "Sweep both palms apart for a shockwave";
-        public const string PlaceDefensesHint = "Pinch a token from the tray to build";
+        public const string PlaceDefensesHint = "Touch a building on your wrist menu, then pinch to place it";
         public const string WaveFight = "Defend the hall!";
 
         // Enemy climbing (Agent B: ClimbRoutes announcements).
@@ -89,6 +90,93 @@ namespace HoldTheTable
         // Economy readouts (Agent D HUD).
         public const string Gold = "Gold {0}";
         public const string IncomeRate = "+{0}/s";
+
+        // ---- WonderBlock (WorldEventsController wonders; append-only) ----
+        public const string WonderJadeBellName = "Jade Bell";
+        public const string WonderYggdrasilName = "Yggdrasil";
+        public const string WonderTeslaName = "Tesla Tower";
+        public const string WonderJadeBellDesc = "Tolls every 10 s: goblins nearby are stunned.";
+        public const string WonderYggdrasilDesc = "Heals buildings and defenders. Grows over time.";
+        public const string WonderTeslaDesc = "Chain lightning strikes goblins.";
+        public const string WonderOffer = "{0}\nPinch and place\n{1} timber  {2} gold";
+        public const string WonderBuilding = "Wonder rising...";
+        public const string WonderComplete = "{0} completed!";
+        public const string WonderCannotAfford = "Not enough resources for the wonder";
+        // ---- /WonderBlock ----
+
+        // ---- BEGIN Anti-Air (AntiAirTower)
+        public const string AntiAirName = "Anti-Air Battery";
+        // ---- END Anti-Air
+
+        // ---- BEGIN Divine Miracles & Hero (DivineMiraclesAndHeroController) ----
+        public const string HeroSlam = "Heroic Slam!";
+        public const string HeroReady = "Your champion is ready. Pinch and drop him on the table.";
+        public const string HeroResting = "The champion rests...";
+        public const string MeteorRain = "Meteor Rain!";
+        public const string MeteorHint = "Hold both palms flat, facing down, for Meteor Rain";
+        public const string MeteorEmpty = "No meteor charges left.";
+        public const string DomeRaised = "Protective Dome!";
+        public const string DomeFaded = "The dome fades.";
+        public const string DomeHint = "Cross your wrists above the hall for a Protective Dome";
+        public const string MiracleRecharging = "The heavens are recharging...";
+        // ---- END Divine Miracles & Hero ----
+
+        // ---- BEGIN Trophy stand (ImperialTrophiesAndAudioJuiceController)
+        public const string TrophyLocked = "Locked";
+        public const string TrophyFirstBlood = "First Blood";
+        public const string TrophyFirstBloodDesc = "Defeat your first goblin.";
+        public const string TrophySlayer = "Goblin Slayer";
+        public const string TrophySlayerDesc = "Defeat {0} goblins in one siege.";
+        public const string TrophyBuilder = "Master Builder";
+        public const string TrophyBuilderDesc = "Raise {0} structures at once.";
+        public const string TrophyVictory = "Table Holder";
+        public const string TrophyVictoryDesc = "Survive all three waves.";
+        public const string TrophyUnbroken = "Unbroken Hall";
+        public const string TrophyUnbrokenDesc = "Win without your hall taking damage.";
+        public const string TrophyGiantKiller = "Giant Killer";
+        public const string TrophyGiantKillerDesc = "Defeat the Goblin King.";
+        // ---- END Trophy stand
+
+        // ---- War Chronicle (WarChronicleTracker end-screen panel)
+        public const string ChronicleTitle = "War Chronicle";
+        public const string ChronicleGoldLegend = "Gold income (peak {0}/s)";
+        public const string ChronicleTimberLegend = "Timber income (peak {0}/s)";
+        public const string ChronicleKills = "Goblins slain: {0}";
+        public const string ChronicleKnockedOff = "Hurled off the table: {0}";
+        public const string ChronicleLadders = "Ladders toppled: {0}";
+        public const string ChronicleBuilt = "Buildings raised: {0}";
+        public const string ChronicleDamage = "Keep damage taken: {0}";
+        public const string ChronicleEarned = "Earned: {0} gold, {1} timber";
+        public const string ChronicleDuration = "Siege lasted {0}:{1}";
+        // ---- end War Chronicle
+
+        // ---- Warlords (WarlordAiPersonalityDirector) ----
+        public const string WarlordSaboteurName = "Gryzzle the Saboteur";
+        public const string WarlordBreakerName = "Krunk the Breaker";
+        public const string WarlordShamanName = "Mogwa the Shaman";
+        public const string WarlordArrives = "{0} leads the raid!";
+        public const string WarlordSlain = "{0} has fallen!";
+        public const string WarlordTotem = "Healing Totem";
+
+        // ---- Harpooner (ClimbRoutes / HarpoonerUnit) ----
+        public const string HarpoonerSpotted = "A goblin harpooner is taking aim at your table!";
+        public const string HarpoonerName = "Goblin Harpooner";
+        // ---- end Harpooner
+
+        // ---- Start menu / Settings / Scroll end page ----
+        public const string StartGame = "Start Game";
+        public const string Settings = "Settings";
+        public const string StartIntro = "Raise a hall on any surface of your room and hold it against the goblin horde.";
+        public const string MenuHand = "Menu hand";
+        public const string RightHanded = "Right-handed";
+        public const string LeftHanded = "Left-handed";
+        public const string MenuHandHint = "The building menu sits on the wrist of this hand. Your other hand places buildings and pokes buttons.";
+        public const string EndlessSiege = "ENDLESS SIEGE";
+        public const string SiegeFallen = "SIEGE FALLEN";
+        public const string ScoreBest = "{0}  \u00b7  Best {1}";
+        public const string WaveStats = "Wave Reached: {0}/{1}  \u00b7  Waves Survived: {2}";
+        public const string EndlessWaveStats = "Endless Wave Reached: {0}  \u00b7  Waves Survived: {1}";
+        // ---- end Start menu / Settings / Scroll end page ----
 
         public static string Format(string key, params object[] args) => string.Format(key, args);
     }

@@ -373,8 +373,23 @@ namespace HoldTheTable
 
         readonly List<AudioSource> hums = new List<AudioSource>();
 
+        Camera portalCam;
+
         void LateUpdate()
         {
+            // portals always face the player (yaw only, so they stay upright on the floor)
+            if (portalCam == null) portalCam = Camera.main;
+            if (portalCam != null)
+            {
+                Vector3 cp = portalCam.transform.position;
+                for (int i = 0; i < portals.Count; i++)
+                {
+                    var pt = portals[i] != null ? portals[i].transform : null;
+                    if (pt == null) continue;
+                    Vector3 d = cp - pt.position; d.y = 0f;
+                    if (d.sqrMagnitude > 1e-4f) pt.rotation = Quaternion.LookRotation(d.normalized, Vector3.up);
+                }
+            }
             // portal hum loops follow the portals (one per portal)
             if (hums.Count == portals.Count) return;
             for (int i = 0; i < hums.Count; i++) if (ProceduralAudio.Instance != null && hums[i] != null) ProceduralAudio.Instance.StopLoop(hums[i]);
@@ -460,10 +475,6 @@ namespace HoldTheTable
             spinT.Add(s3); spinSpeed.Add(-200f);
             pulseT.Add(ring); pulseBase.Add(Vector3.one);
             pulseT.Add(ring2); pulseBase.Add(Vector3.one * 0.55f);
-
-            // glowing core spot
-            var kc = new BuildingVisuals.Kit(vortex);
-            kc.Ball(new Vector3(0f, 0f, 0.016f), 0.18f, rim).GetComponent<MeshRenderer>().sharedMaterial = Mats.Unlit(new Color(0.85f, 1f, 0.6f));
 
             // drifting sparks (local to root, recycled)
             var ks = new BuildingVisuals.Kit(root.transform);

@@ -116,6 +116,7 @@ namespace HoldTheTable
                     case UnitType.Farm: return Strings.FarmName;
                     case UnitType.Mine: return Strings.MineName;
                     case UnitType.Barracks: return "Barracks";
+                    case UnitType.AntiAir: return Strings.AntiAirName;
                     default: return Strings.BarricadeName;
                 }
             }
@@ -170,6 +171,7 @@ namespace HoldTheTable
                 if (type == UnitType.Wall) UpdateWallLine(gd, cost);
                 if (candFound) ghost.Show(candPos, candSurface.Pose.up, UnitDef.Get(type).footprint, candValid);
                 else ghost.Hide();
+                if (type == UnitType.AntiAir && candFound) AntiAirTower.ShowRangeRing(candPos, candSurface.Pose.up, UnitDef.Get(type).range, candValid);
             }
         }
 
