@@ -35,6 +35,8 @@ public static class BuildScript
             EditorUserBuildSettings.buildAppBundle = false;
             // Meta Dashboard validation requires android:screenOrientation="landscape" in the manifest.
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.LandscapeLeft;
+            // Each upload to a release channel needs a higher version code than the previous one.
+            if (int.TryParse(Environment.GetEnvironmentVariable("HTT_VERSION_CODE"), out int vc)) PlayerSettings.Android.bundleVersionCode = vc;
 
             // Release signing: keystore path/password come from the environment, never from the repo.
             string ks = Environment.GetEnvironmentVariable("HTT_KEYSTORE");
