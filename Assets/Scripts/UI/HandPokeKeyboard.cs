@@ -14,9 +14,10 @@ namespace HoldTheTable
     public class HandPokeKeyboard : MonoBehaviour
     {
         static readonly string[] Rows = { "qwertyuiop", "asdfghjkl", "zxcvbnm" };
-        const float Pitch = 80f;
-        const float KeyH = 84f;
-        const float RowGap = 6f;
+        const float Pitch = 64f;
+        const float KeyW = 58f;
+        const float KeyH = 74f;
+        const float RowGap = 8f;
 
         public event Action<string> TextChanged;
         public event Action Confirmed;
@@ -58,21 +59,21 @@ namespace HoldTheTable
                 {
                     char c = row[i];
                     int idx = li;
-                    var b = UiKit.ButtonSfx(area, c.ToString(), new Vector2(x0 + i * Pitch, y), new Vector2(Pitch, KeyH), () => TypeLetter(idx), 40, Sfx.KeyTap);
-                    UiKit.SetButtonColor(b, new Color(0.30f, 0.17f, 0.08f, 1f));
+                    var b = UiKit.ButtonSfx(area, c.ToString(), new Vector2(x0 + i * Pitch, y), new Vector2(KeyW, KeyH), () => TypeLetter(idx), 36, Sfx.KeyTap);
+                    UiKit.SetButtonColor(b, UiKit.OakMid);
                     letters[idx] = c;
                     letterLabels[idx] = b.GetComponentInChildren<TMP_Text>(true);
                     li++;
                 }
             }
 
-            // bottom row: Shift | Space | Backspace | Confirm  (total 780 px)
+            // bottom row: Shift | Space | Backspace | Confirm (total 608 px, fits inside 680px scroll safe zone)
             float yb = y0 - 3 * (KeyH + RowGap);
-            shiftButton = UiKit.ButtonSfx(area, Strings.Shift, new Vector2(-310f, yb), new Vector2(160f, KeyH), ToggleShift, 30, Sfx.KeyTap);
-            UiKit.ButtonSfx(area, Strings.Space, new Vector2(-95f, yb), new Vector2(260f, KeyH), TypeSpace, 30, Sfx.KeyTap);
-            UiKit.ButtonSfx(area, Strings.Backspace, new Vector2(115f, yb), new Vector2(150f, KeyH), Backspace, 30, Sfx.KeyTap);
-            var ok = UiKit.Button(area, Strings.Confirm, new Vector2(300f, yb), new Vector2(200f, KeyH), Confirm, 30);
-            UiKit.SetButtonColor(ok, new Color(0.18f, 0.40f, 0.16f, 1f));
+            shiftButton = UiKit.ButtonSfx(area, Strings.Shift, new Vector2(-242f, yb), new Vector2(126f, KeyH), ToggleShift, 28, Sfx.KeyTap);
+            UiKit.ButtonSfx(area, Strings.Space, new Vector2(-58f, yb), new Vector2(200f, KeyH), TypeSpace, 28, Sfx.KeyTap);
+            UiKit.ButtonSfx(area, Strings.Backspace, new Vector2(102f, yb), new Vector2(106f, KeyH), Backspace, 28, Sfx.KeyTap);
+            var ok = UiKit.Button(area, Strings.Confirm, new Vector2(230f, yb), new Vector2(136f, KeyH), Confirm, 28);
+            UiKit.SetButtonColor(ok, UiKit.ConfirmGreen);
             ApplyCase();
         }
 
@@ -139,7 +140,7 @@ namespace HoldTheTable
             for (int i = 0; i < letterLabels.Length; i++)
                 if (letterLabels[i] != null) letterLabels[i].text = (upper ? char.ToUpperInvariant(letters[i]) : letters[i]).ToString();
             if (shiftButton != null)
-                UiKit.SetButtonColor(shiftButton, upper ? new Color(0.62f, 0.45f, 0.12f, 1f) : UiKit.ButtonColor);
+                UiKit.SetButtonColor(shiftButton, upper ? UiKit.ActiveTabAmber : UiKit.OakMid);
         }
 
         void RefreshDisplay()

@@ -109,24 +109,40 @@ namespace HoldTheTable
             built = true;
             var root = (RectTransform)canvas.transform;
             content = UiKit.Rect(root, "EndContent", Vector2.zero, new Vector2(800f, 500f));
-            var bg = UiKit.Panel(content, Vector2.zero, new Vector2(800f, 500f), UiKit.Parchment);
-            bg.GetComponent<Image>().raycastTarget = false;
-            var ol = bg.gameObject.AddComponent<Outline>();
-            ol.effectColor = UiKit.Gold;
-            ol.effectDistance = new Vector2(6f, -6f);
-            banner = UiKit.Panel(content, new Vector2(0f, 200f), new Vector2(800f, 24f), UiKit.ButtonColor).GetComponent<Image>();
+
+            // Layered carved walnut & antique brass memorial plaque
+            UiKit.FramedPanel(content, "EndFrame", Vector2.zero, new Vector2(800f, 500f),
+                UiKit.WalnutFrame, UiKit.Parchment, UiKit.Gold, 8f, true);
+
+            // Heraldic ribbon across the top
+            banner = UiKit.Panel(content, new Vector2(0f, 206f), new Vector2(764f, 22f), UiKit.ButtonColor).GetComponent<Image>();
             banner.raycastTarget = false;
+            var bRim = UiKit.Panel(content, new Vector2(0f, 194f), new Vector2(764f, 2f), UiKit.Gold);
+            bRim.GetComponent<Image>().raycastTarget = false;
 
-            titleText = UiKit.Label(content, string.Empty, new Vector2(0f, 145f), new Vector2(760f, 88f), 72);
-            titleText.fontStyle = FontStyles.Bold;
-            nameText = UiKit.Label(content, string.Empty, new Vector2(0f, 84f), new Vector2(760f, 44f), 32);
-            scoreText = UiKit.Label(content, string.Empty, new Vector2(0f, 32f), new Vector2(760f, 48f), 42);
-            waveStatsText = UiKit.Label(content, string.Empty, new Vector2(0f, -20f), new Vector2(760f, 44f), 28);
-            waveStatsText.color = new Color(0.32f, 0.20f, 0.08f, 1f);
+            titleText = UiKit.Label(content, string.Empty, new Vector2(0f, 142f), new Vector2(760f, 80f), 66);
+            titleText.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            nameText = UiKit.Label(content, string.Empty, new Vector2(0f, 92f), new Vector2(760f, 38f), 28);
+            nameText.fontStyle = FontStyles.Italic;
+            nameText.color = UiKit.InkMuted;
 
-            restartButton = UiKit.Button(content, Strings.Restart, new Vector2(0f, -145f), new Vector2(460f, 136f), OnRestart, 50);
-            endlessButton = UiKit.Button(content, EndlessSiegeLabel, new Vector2(195f, -145f), new Vector2(350f, 136f), OnEndlessSiege, 38);
-            UiKit.SetButtonColor(endlessButton, new Color(0.18f, 0.44f, 0.22f, 1f));
+            // Recessed vellum stats plaque
+            var statsPlq = UiKit.FramedPanel(content, "StatsPlaque", new Vector2(0f, 16f), new Vector2(740f, 88f),
+                UiKit.WalnutFrame, UiKit.ParchmentShade, UiKit.BronzeShadow, 3f, true);
+            statsPlq.GetComponent<Image>().raycastTarget = false;
+
+            scoreText = UiKit.Label(statsPlq, string.Empty, new Vector2(0f, 18f), new Vector2(710f, 40f), 34);
+            scoreText.fontStyle = FontStyles.Bold;
+            scoreText.color = UiKit.Ink;
+
+            waveStatsText = UiKit.Label(statsPlq, string.Empty, new Vector2(0f, -18f), new Vector2(710f, 32f), 24);
+            waveStatsText.color = UiKit.InkMuted;
+
+            restartButton = UiKit.Button(content, Strings.Restart, new Vector2(0f, -145f), new Vector2(420f, 100f), OnRestart, 44);
+            UiKit.SetButtonColor(restartButton, UiKit.ButtonColor);
+
+            endlessButton = UiKit.Button(content, EndlessSiegeLabel, new Vector2(185f, -145f), new Vector2(340f, 100f), OnEndlessSiege, 34);
+            UiKit.SetButtonColor(endlessButton, UiKit.ConfirmGreen);
             endlessButton.gameObject.SetActive(false);
         }
 
@@ -192,19 +208,19 @@ namespace HoldTheTable
 
             if (showEndlessSiegeButton && endlessButton != null)
             {
-                restartRt.anchoredPosition = new Vector2(-195f, -145f);
-                restartRt.sizeDelta = new Vector2(350f, 136f);
+                restartRt.anchoredPosition = new Vector2(-185f, -145f);
+                restartRt.sizeDelta = new Vector2(340f, 100f);
 
                 var endlessRt = (RectTransform)endlessButton.transform;
-                endlessRt.anchoredPosition = new Vector2(195f, -145f);
-                endlessRt.sizeDelta = new Vector2(350f, 136f);
+                endlessRt.anchoredPosition = new Vector2(185f, -145f);
+                endlessRt.sizeDelta = new Vector2(340f, 100f);
                 endlessButton.interactable = true;
                 endlessButton.gameObject.SetActive(true);
             }
             else
             {
                 restartRt.anchoredPosition = new Vector2(0f, -145f);
-                restartRt.sizeDelta = new Vector2(460f, 136f);
+                restartRt.sizeDelta = new Vector2(420f, 100f);
                 if (endlessButton != null) endlessButton.gameObject.SetActive(false);
             }
         }

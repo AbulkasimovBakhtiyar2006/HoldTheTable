@@ -403,6 +403,9 @@ namespace HoldTheTable
         /// <summary>Builds a unit visual. Origin = ground center; walls run along local X. muzzle = arrow spawn (towers) or root.</summary>
         public static Transform BuildUnit(Transform parent, UnitType type, CivilizationDefinition civOverride, out Transform muzzle)
         {
+            if (type == UnitType.Barracks)
+                return BarracksSpawner.BuildBarracksVisual(parent, civOverride, out muzzle);
+
             Resolve(civOverride, out var style, out var p);
             var root = NewRoot(parent, type + "Visual");
             var k = new Kit(root);

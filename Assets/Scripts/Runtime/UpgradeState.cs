@@ -19,6 +19,7 @@ namespace HoldTheTable
             {
                 case UnitType.Wall: return Strings.WallName;
                 case UnitType.ArcherTower: return Strings.TowerName;
+                case UnitType.Barracks: return "Barracks";
                 default: return Strings.BarricadeName;
             }
         }

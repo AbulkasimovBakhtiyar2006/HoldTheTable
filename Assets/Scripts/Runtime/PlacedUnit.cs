@@ -54,6 +54,9 @@ namespace HoldTheTable
             popT = 0f;
             cooldown = 0.3f;
             HookUpgrades();
+            CivilizationPassives.ApplyToUnit(this, civOverride);
+            ResourceOutpostNode.NotifyUnitPlaced(this);
+            if (BarracksSpawner.IsBarracksType(t)) BarracksSpawner.AttachToBarracks(this, civOverride);
         }
 
         void OnEnable()
@@ -84,7 +87,11 @@ namespace HoldTheTable
 
         void OnUpgradesChanged()
         {
-            if (health != null && def != null && !health.IsDead) health.SetMaxKeepFraction(def.EffectiveHp);
+            if (health != null && def != null && !health.IsDead)
+            {
+                health.SetMaxKeepFraction(def.EffectiveHp);
+                CivilizationPassives.RefreshUnitMaxHp(this);
+            }
         }
 
         void OnDamaged(Health h) { shake = 0.2f; }
@@ -104,9 +111,9 @@ namespace HoldTheTable
             if (Mathf.Abs(local.y) > 0.15f) return false;
             if (type == UnitType.Wall)
                 return Mathf.Abs(local.x) <= UnitDef.WallLength * 0.5f + pad && Mathf.Abs(local.z) <= UnitDef.WallThickness * 0.5f + pad;
-            if (type == UnitType.ArcherTower || type == UnitType.Farm || type == UnitType.Mine)
+            if (type == UnitType.ArcherTower || type == UnitType.Farm || type == UnitType.Mine || BarracksSpawner.IsBarracksType(type))
             {
-                float r = (type == UnitType.ArcherTower ? 0.026f : 0.035f) + pad;
+                float r = (type == UnitType.ArcherTower ? 0.026f : BarracksSpawner.IsBarracksType(type) ? 0.038f : 0.035f) + pad;
                 return local.x * local.x + local.z * local.z <= r * r;
             }
             return false; // barricades slow, they do not block
@@ -139,6 +146,8 @@ namespace HoldTheTable
                 }
             }
 
+            CivilizationPassives.TickUnitPassive(this, dt);
+
             if (def != null && def.isEconomy && health != null && !health.IsDead)
             {
                 // production feedback (income itself is computed by GameDirector from UnitDef rates)
@@ -154,26 +163,36 @@ namespace HoldTheTable
                 return;
             }
             if (type != UnitType.ArcherTower || def == null || health == null || health.IsDead) return;
+
+            if (HandOfGodController.TryConsumeVolley(this, out _)) cooldown = 0f;
             cooldown -= dt;
             if (cooldown > 0f) return;
 
             Vector3 origin = muzzle != null ? muzzle.position : transform.position;
-            float range = def.range;
+            float range = BuildingUpgradeController.GetEffectiveRange(this);
             float best = range * range;
-            MonsterUnit target = null;
-            var list = MonsterUnit.Active;
             Vector3 me = transform.position;
-            for (int i = 0; i < list.Count; i++)
+            MonsterUnit target = HandOfGodController.GetFocusedTargetInRange(me, range);
+            if (target == null)
             {
-                var m = list[i];
-                if (m == null || !m.IsAlive) continue;
-                float d = (m.transform.position - me).sqrMagnitude;
-                if (d <= best) { best = d; target = m; }
+                var list = MonsterUnit.Active;
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var m = list[i];
+                    if (m == null || !m.IsAlive) continue;
+                    float d = (m.transform.position - me).sqrMagnitude;
+                    if (d <= best) { best = d; target = m; }
+                }
             }
+            target = BuildingUpgradeController.SelectPriorityTarget(this, range, target);
             if (target == null) { cooldown = 0.1f; return; }
-            Projectile.Fire(origin, target, def.EffectiveDamage);
+
+            if (!BuildingUpgradeController.TryFireUpgradedTower(this, origin, target, def.EffectiveDamage))
+            {
+                CivilizationPassives.FireTowerProjectile(origin, target, def.EffectiveDamage);
+            }
             shots++;
-            cooldown = def.fireInterval;
+            cooldown = BuildingUpgradeController.GetEffectiveFireInterval(this);
         }
     }
 }

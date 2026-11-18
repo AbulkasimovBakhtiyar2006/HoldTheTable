@@ -56,10 +56,10 @@ namespace HoldTheTable
             if (rawImage != null && Area == area) { LoadFromProfile(); return; }
             Area = area;
 
-            // frame (thin gold border drawn as a slightly larger panel behind the pad)
-            var frame = UiKit.Panel(area, Vector2.zero, Vector2.zero, UiKit.Gold);
-            frame.name = "EmblemFrame";
-            UiKit.Fill(frame, 0f);
+            // Carved walnut frame with antique brass rim behind the drawing pad
+            var frame = UiKit.FramedPanel(area, "EmblemFrame", Vector2.zero, Vector2.zero,
+                UiKit.WalnutFrame, UiKit.DarkPanel, UiKit.Gold, 4f, true);
+            UiKit.Fill((RectTransform)frame.transform, 0f);
             frame.GetComponent<Image>().raycastTarget = false;
 
             padRect = UiKit.Rect(area, "EmblemPad", Vector2.zero, Vector2.zero);
@@ -158,7 +158,12 @@ namespace HoldTheTable
             texture.SetPixels32(pixels);
             texture.Apply(false, false);
             pixelsDirty = false;
-            if (hint != null) hint.enabled = strokes.Count == 0;
+            if (hint != null)
+            {
+                hint.enabled = strokes.Count == 0;
+                float lum = bgColor.r * 0.299f + bgColor.g * 0.587f + bgColor.b * 0.114f;
+                hint.color = lum > 0.55f ? new Color(0.18f, 0.12f, 0.08f, 0.65f) : new Color(0.96f, 0.92f, 0.84f, 0.65f);
+            }
         }
 
         void LateUpdate()

@@ -1,3 +1,4 @@
+#pragma warning disable CS0619
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -58,7 +59,7 @@ namespace HoldTheTable
         GamePhase lastObservedPhase = GamePhase.CivilizationSetup;
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
-        static void ResetStatics()
+        public static void ResetStatics()
         {
             Instance = null;
             vfxRoot = null;
@@ -847,7 +848,7 @@ namespace HoldTheTable
         {
             unit = placedUnit;
             civ = civDef ?? CivilizationCatalog.Active;
-            phaseOffset = (GetInstanceID() & 0xFF) * 0.07f;
+            phaseOffset = (GetHashCode() & 0xFF) * 0.07f;
             zapCooldown = 0.4f;
             regenPulseTimer = 0.5f;
             RebuildAccentIfNeeded();

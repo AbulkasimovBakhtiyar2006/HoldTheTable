@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace HoldTheTable
 {
-    public enum UnitType { Wall, ArcherTower, Barricade, Farm, Mine }
+    public enum UnitType { Wall, ArcherTower, Barricade, Farm, Mine, Barracks }
 
     /// <summary>Static per-type stats. Owner: Agent B.</summary>
     public sealed class UnitDef
@@ -35,6 +35,7 @@ namespace HoldTheTable
             new UnitDef { type = UnitType.Barricade,   cost = 8,  hp = 15f, footprint = 0.05f, range = 0.08f, damage = 0f, slow = 0.4f, fireInterval = 0f },
             new UnitDef { type = UnitType.Farm,        cost = 12, hp = 15f, footprint = 0.05f, range = 0f,    damage = 0f, slow = 1f,   fireInterval = 0f, timberPerSec = 1.5f, isEconomy = true },
             new UnitDef { type = UnitType.Mine,        cost = 18, hp = 20f, footprint = 0.05f, range = 0f,    damage = 0f, slow = 1f,   fireInterval = 0f, goldPerSec = 1f,     isEconomy = true },
+            new UnitDef { type = UnitType.Barracks,    cost = 16, hp = 26f, footprint = 0.055f, range = 0.28f, damage = 2.5f, slow = 1f, fireInterval = 5f, goldCost = 5 },
         };
 
         public static UnitDef Get(UnitType t) => defs[(int)t];

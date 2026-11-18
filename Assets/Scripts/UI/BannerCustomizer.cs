@@ -87,27 +87,36 @@ namespace HoldTheTable
             float regionTop = h * 0.5f - m;
             float regionH = regionTop - regionBottom;
 
-            // ---- right column: preview, target toggle, confirm
-            float rc = Mathf.Min(230f, w * 0.3f);
+            // ---- right column: preview standard, target toggle, confirm
+            float rc = Mathf.Min(220f, w * 0.32f);
             float rcx = w * 0.5f - m - rc * 0.5f;
-            float pw = rc - 26f, ph = pw / EmblemRasterizer.Aspect;
+            float pw = rc - 24f, ph = pw / EmblemRasterizer.Aspect;
             float y = regionTop;
-            float clothY = y - 12f - ph * 0.5f;
-            float poleX = rcx - rc * 0.5f + 8f;
-            var pole = UiKit.Panel(panel, new Vector2(poleX, clothY - 10f), new Vector2(8f, ph + 40f), new Color(0.36f, 0.22f, 0.10f, 1f));
-            pole.name = "PreviewPole";
-            pole.GetComponent<Image>().raycastTarget = false;
-            var finial = UiKit.Panel(panel, new Vector2(poleX, clothY + ph * 0.5f + 16f), new Vector2(18f, 18f), UiKit.Gold);
-            finial.name = "PreviewFinial";
-            finial.GetComponent<Image>().raycastTarget = false;
+            float clothY = y - 16f - ph * 0.5f;
+
+            // Recessed dark walnut & brass backing for the banner preview
+            var previewBacking = UiKit.FramedPanel(panel, "PreviewBacking", new Vector2(rcx, clothY), new Vector2(pw + 16f, ph + 16f),
+                UiKit.WalnutFrame, UiKit.ParchmentShade, UiKit.Gold, 2.5f, true);
+            previewBacking.GetComponent<Image>().raycastTarget = false;
+
+            // Brass hanging crossbar with round finials
+            var crossbar = UiKit.Panel(panel, new Vector2(rcx, clothY + ph * 0.5f + 4f), new Vector2(pw + 14f, 6f), UiKit.WalnutFrame);
+            crossbar.name = "PreviewCrossbar";
+            crossbar.GetComponent<Image>().raycastTarget = false;
+            var finL = UiKit.Panel(panel, new Vector2(rcx - pw * 0.5f - 8f, clothY + ph * 0.5f + 4f), new Vector2(10f, 10f), UiKit.Gold);
+            finL.GetComponent<Image>().raycastTarget = false;
+            var finR = UiKit.Panel(panel, new Vector2(rcx + pw * 0.5f + 8f, clothY + ph * 0.5f + 4f), new Vector2(10f, 10f), UiKit.Gold);
+            finR.GetComponent<Image>().raycastTarget = false;
+
             previewTex = EmblemRasterizer.CreateTexture(EmblemRasterizer.DefaultSize);
             previewTex.name = "BannerPreviewTex";
-            preview = UiKit.RawImage(panel, new Vector2(poleX + 4f + pw * 0.5f, clothY), new Vector2(pw, ph), previewTex);
+            preview = UiKit.RawImage(panel, new Vector2(rcx, clothY), new Vector2(pw, ph), previewTex);
             preview.name = "BannerPreview";
             preview.raycastTarget = false;
-            y = clothY - ph * 0.5f - 26f;
+            y = clothY - ph * 0.5f - 24f;
 
             var paintLbl = UiKit.Label(panel, BannerStrings.PaintTarget, new Vector2(rcx, y - 13f), new Vector2(rc, 26f), 22);
+            paintLbl.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
             paintLbl.color = UiKit.Ink;
             y -= 30f;
             float tbh = Mathf.Max(MinButton, Mathf.Min(72f, (y - regionBottom - 96f - 2f * 6f) / 3f));
@@ -116,7 +125,7 @@ namespace HoldTheTable
             for (int i = 0; i < 3; i++)
             {
                 var t = (PaintTarget)i;
-                var b = UiKit.Button(panel, targetNames[i], new Vector2(rcx, y - tbh * 0.5f), new Vector2(rc, tbh), () => SetTarget(t), 30);
+                var b = UiKit.Button(panel, targetNames[i], new Vector2(rcx, y - tbh * 0.5f), new Vector2(rc, tbh), () => SetTarget(t), 28);
                 ((RectTransform)b.transform).sizeDelta = new Vector2(rc, tbh);
                 targetButtons.Add(b);
                 y -= tbh + 6f;
@@ -124,7 +133,7 @@ namespace HoldTheTable
             float confirmH = Mathf.Max(MinButton, Mathf.Min(88f, y - regionBottom - 4f));
             var confirm = UiKit.Button(panel, Strings.Confirm, new Vector2(rcx, regionBottom + confirmH * 0.5f), new Vector2(rc, confirmH), OnConfirm, 34);
             ((RectTransform)confirm.transform).sizeDelta = new Vector2(rc, confirmH);
-            UiKit.SetButtonColor(confirm, new Color(0.18f, 0.40f, 0.16f, 1f));
+            UiKit.SetButtonColor(confirm, UiKit.ConfirmGreen);
 
             // ---- left: tabs + pages
             float lw = w - 2f * m - 10f - rc;
@@ -195,12 +204,12 @@ namespace HoldTheTable
         void BuildPatternsPage(RectTransform page, float pw, float ph)
         {
             int count = Enum.GetValues(typeof(BannerPattern)).Length;
-            const int cols = 6;
+            const int cols = 5;
             int rows = (count + cols - 1) / cols;
             const float g = 8f;
             const float toolsH = 76f;
-            float bw = Mathf.Max(MinButton, (pw - (cols - 1) * g) / cols);
-            float bh = Mathf.Max(MinButton, Mathf.Min(bw / EmblemRasterizer.Aspect + 12f, (ph - toolsH - 10f - (rows - 1) * g) / rows));
+            float bw = (pw - (cols - 1) * g) / cols;
+            float bh = Mathf.Min(bw / EmblemRasterizer.Aspect + 10f, (ph - toolsH - 10f - (rows - 1) * g) / rows);
             float x0 = -pw * 0.5f + bw * 0.5f, y0 = ph * 0.5f - bh * 0.5f;
             for (int i = 0; i < count; i++)
             {
@@ -209,16 +218,16 @@ namespace HoldTheTable
                 var b = UiKit.Button(page, "", pos, new Vector2(bw, bh), () => AddLayer(pat), 18);
                 ((RectTransform)b.transform).sizeDelta = new Vector2(bw, bh);
                 b.name = "Pattern_" + pat;
-                UiKit.SetButtonColor(b, new Color(0.30f, 0.18f, 0.10f, 1f));
+                UiKit.SetButtonColor(b, UiKit.OakMid);
                 float th = Mathf.Min(bh - 10f, (bw - 10f) / EmblemRasterizer.Aspect);
                 var img = UiKit.RawImage((RectTransform)b.transform, Vector2.zero, new Vector2(th * EmblemRasterizer.Aspect, th), EmblemRasterizer.PatternThumb(pat));
                 img.raycastTarget = false;
             }
             float ty = -ph * 0.5f + toolsH * 0.5f;
             float tbw = (pw - 2f * g) / 3f;
-            UiKit.Button(page, BannerStrings.UndoLayer, new Vector2(-pw * 0.5f + tbw * 0.5f, ty), new Vector2(tbw, toolsH), UndoLayer, 28);
-            UiKit.Button(page, BannerStrings.ClearLayers, new Vector2(-pw * 0.5f + tbw * 1.5f + g, ty), new Vector2(tbw, toolsH), ClearLayers, 28);
-            layerCountLabel = UiKit.Label(page, "", new Vector2(-pw * 0.5f + tbw * 2.5f + 2f * g, ty), new Vector2(tbw, toolsH), 28);
+            UiKit.Button(page, BannerStrings.UndoLayer, new Vector2(-pw * 0.5f + tbw * 0.5f, ty), new Vector2(tbw, toolsH), UndoLayer, 26);
+            UiKit.Button(page, BannerStrings.ClearLayers, new Vector2(-pw * 0.5f + tbw * 1.5f + g, ty), new Vector2(tbw, toolsH), ClearLayers, 26);
+            layerCountLabel = UiKit.Label(page, "", new Vector2(-pw * 0.5f + tbw * 2.5f + 2f * g, ty), new Vector2(tbw, toolsH), 26);
             layerCountLabel.color = UiKit.Ink;
         }
 
@@ -394,11 +403,10 @@ namespace HoldTheTable
             var rim = b.GetComponent<Outline>();
             if (rim != null)
             {
-                rim.effectColor = on ? Color.white : UiKit.Gold;
-                rim.effectDistance = on ? new Vector2(7f, -7f) : new Vector2(4f, -4f);
+                rim.effectColor = on ? UiKit.GoldBright : UiKit.Gold;
+                rim.effectDistance = on ? new Vector2(3f, -3f) : new Vector2(1.5f, -1.5f);
             }
-            if (tool) UiKit.SetButtonColor(b, on ? SelectedTool : UiKit.ButtonColor);
-            b.transform.localScale = on && !tool ? new Vector3(1.08f, 1.08f, 1f) : Vector3.one;
+            if (tool) UiKit.SetButtonColor(b, on ? UiKit.ActiveTabAmber : UiKit.WalnutFrame);
         }
     }
 }

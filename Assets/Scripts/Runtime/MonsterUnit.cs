@@ -213,6 +213,7 @@ namespace HoldTheTable
             if (fwd.sqrMagnitude > 1e-8f) transform.rotation = Quaternion.LookRotation(fwd, up);
             if (!gameObject.activeSelf) gameObject.SetActive(true);
             if (!Active.Contains(this)) Active.Add(this);
+            ResourceOutpostNode.TryDivertMonster(this);
         }
 
         Vector3 SurfaceUp() => Path != null && Path.Surface != null ? Path.Surface.Pose.rotation * Vector3.up : Vector3.up;
@@ -265,6 +266,10 @@ namespace HoldTheTable
             }
             Active.Clear();
             if (ClimbRoutes.Existing != null) ClimbRoutes.Existing.ClearAll();
+            if (HandOfGodController.Existing != null) HandOfGodController.Existing.ResetState();
+            GoblinKingBoss.DespawnAll();
+            FlyingThreatUnit.DespawnAll();
+            SiegeCatapultUnit.DespawnAll();
         }
 
         /// <summary>Current route segment type.</summary>
@@ -326,6 +331,7 @@ namespace HoldTheTable
         void Update()
         {
             if (!launched || dying) return;
+            if (HandOfGodController.IsMonsterControlled(this)) return;
             float dt = Time.deltaTime;
             Vector3 pos = transform.position;
 
@@ -404,7 +410,7 @@ namespace HoldTheTable
                 return;
             }
 
-            float speedMul = 1f;
+            float speedMul = GoblinKingBoss.GetSpeedMultiplier(this);
             PlacedUnit blocker = null;
             bool atHall = false;
             TownHall hall = TownHall.Current;

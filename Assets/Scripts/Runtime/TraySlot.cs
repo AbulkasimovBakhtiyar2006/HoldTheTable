@@ -115,6 +115,7 @@ namespace HoldTheTable
                     case UnitType.ArcherTower: return Strings.TowerName;
                     case UnitType.Farm: return Strings.FarmName;
                     case UnitType.Mine: return Strings.MineName;
+                    case UnitType.Barracks: return "Barracks";
                     default: return Strings.BarricadeName;
                 }
             }

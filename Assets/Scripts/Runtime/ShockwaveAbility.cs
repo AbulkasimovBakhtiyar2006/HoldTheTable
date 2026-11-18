@@ -68,6 +68,18 @@ namespace HoldTheTable
             lastFire = -10f;
         }
 
+        public void OnWaveCleared()
+        {
+            CivilizationPassives.TryResetShockwaveOnWaveClear(ref lastFire, ref used, true);
+        }
+
+        public void ResetCooldownAndCharges(bool restoreAllCharges = true)
+        {
+            used = restoreAllCharges ? 0 : Mathf.Max(0, used - 1);
+            lastFire = -10f;
+            count = 0;
+        }
+
         void Update()
         {
             if (!subscribed) TrySubscribe();

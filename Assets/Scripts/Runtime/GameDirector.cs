@@ -36,6 +36,8 @@ namespace HoldTheTable
         public TownHall Hall { get; private set; }
         public ITableSurface Surface { get; private set; }
         public BannerRenderer Banner { get; private set; }
+        public bool IsEndlessMode { get; private set; }
+        public int MaxBuildings => TownHall.CurrentBuildingCap;
         public int Charges => ShockwaveAbility.Instance != null ? ShockwaveAbility.Instance.Charges : 0;
         public bool IsCombatPhase => Phase == GamePhase.BuildPhase || Phase == GamePhase.Wave || Phase == GamePhase.Upgrade;
         public int LastScore { get; private set; }
@@ -62,11 +64,15 @@ namespace HoldTheTable
         void OnEnable()
         {
             if (!profileSubscribed) { CivilizationProfile.Changed += OnProfileChanged; profileSubscribed = true; }
+            EndScreen.EndlessSiegeRequested += OnEndlessSiegeRequested;
+            BuildingUpgradeController.ResourceRefundRequested += OnResourceRefundRequested;
         }
 
         void OnDisable()
         {
             if (profileSubscribed) { CivilizationProfile.Changed -= OnProfileChanged; profileSubscribed = false; }
+            EndScreen.EndlessSiegeRequested -= OnEndlessSiegeRequested;
+            BuildingUpgradeController.ResourceRefundRequested -= OnResourceRefundRequested;
         }
 
         void OnDestroy()
@@ -78,6 +84,9 @@ namespace HoldTheTable
         void Start()
         {
             SetPhase(GamePhase.CivilizationSetup);
+            HandOfGodController.Ensure();
+            BuildingUpgradeController.EnsureInstance();
+            LivingSettlementCoordinator.EnsureInstance();
             if (ImperialScroll.Instance != null) ImperialScroll.Instance.Open();
             else Debug.LogWarning("[GameDirector] ImperialScroll missing in scene");
         }
@@ -128,6 +137,7 @@ namespace HoldTheTable
             }
             Hall = hall;
             Surface = surface;
+            CivilizationPassives.ApplyToTownHall(hall);
             SubscribeHall(hall.health);
 
             Vector3 hallPos = hall.transform.position;
@@ -135,6 +145,8 @@ namespace HoldTheTable
             SpawnBannerOnce(hallPos);
 
             ResetSession();
+            ResourceOutpostNode.SpawnForSession(hallPos, surface);
+            BuildingUpgradeController.EnsureInstance();
             if (VfxPool.Instance != null) VfxPool.Instance.Ring(hallPos, 0.2f);
             if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.Place, hallPos);
             Debug.Log($"[GameDirector] Empire '{CivilizationProfile.Current.DisplayName}' founded at {hallPos} on surface {(surface != null ? surface.Id : "null")}");
@@ -152,7 +164,9 @@ namespace HoldTheTable
             }
             ResetSession();
             Hall.ResetForRestart();
+            CivilizationPassives.ApplyToTownHall(Hall);
             if (SettlementBuildArea.Instance != null) SettlementBuildArea.Instance.ResetKeepHall();
+            ResourceOutpostNode.SpawnForSession(Hall.transform.position, Surface);
             GameReset?.Invoke();
             EnterBuildPhase();
         }
@@ -162,6 +176,8 @@ namespace HoldTheTable
         {
             StopSessionObjects();
             UnsubscribeHall();
+            CivilizationPassives.ResetStatics();
+            IsEndlessMode = false;
             if (BuildingFactory.Instance != null) BuildingFactory.Instance.DestroyTownHall();
             Hall = null;
             Surface = null;
@@ -196,6 +212,7 @@ namespace HoldTheTable
             switch (Phase)
             {
                 case GamePhase.BuildPhase:
+                    CivilizationPassives.TickBetweenWaves(dt);
                     AccrueIncome(dt);
                     Countdown -= dt;
                     if (Countdown <= 0f) StartWave();
@@ -206,6 +223,7 @@ namespace HoldTheTable
                     if (ws != null && ws.WaveCleared) OnWaveCleared();
                     break;
                 case GamePhase.Upgrade:
+                    CivilizationPassives.TickBetweenWaves(dt);
                     upgradeTimer -= dt;
                     if (upgradeTimer <= 0f)
                     {
@@ -237,6 +255,9 @@ namespace HoldTheTable
         {
             float farm = 0f, mine = 0f;
             var units = PlacedUnit.All;
+            var civ = CivilizationProfile.Current != null ? CivilizationProfile.Current.Definition : null;
+            float farmCivMul = CivilizationPassives.GetFarmTimberMultiplier(civ);
+            float mineCivMul = CivilizationPassives.GetMineGoldMultiplier(civ);
             for (int i = 0; i < units.Count; i++)
             {
                 var u = units[i];
@@ -244,9 +265,10 @@ namespace HoldTheTable
                 if (u.health != null && u.health.IsDead) continue;
                 var d = UnitDef.Get(u.type);
                 if (d == null || !d.isEconomy) continue;
-                farm += d.timberPerSec;
-                mine += d.goldPerSec;
+                if (u.type == UnitType.Farm) farm += d.timberPerSec * farmCivMul;
+                else if (u.type == UnitType.Mine) mine += d.goldPerSec * mineCivMul * ResourceOutpostNode.GetGoldMultiplier(u);
             }
+            mine += ResourceOutpostNode.GetUnboundClaimedGoldPerSec();
             float mul = UpgradeState.Instance != null ? UpgradeState.Instance.EconomyMul : 1f;
             TimberRate = TimberPerSecond + farm * mul;
             GoldRate = mine * mul;
@@ -270,8 +292,15 @@ namespace HoldTheTable
         {
             Countdown = 0f;
             SetPhase(GamePhase.Wave);
-            if (WaveSpawner.Instance != null && Hall != null)
-                WaveSpawner.Instance.BeginWave(WaveIndex, Hall.transform.position, Surface);
+            if (Hall != null)
+            {
+                Vector3 hallPos = Hall.transform.position;
+                if (WaveSpawner.Instance != null)
+                    WaveSpawner.Instance.BeginWave(WaveIndex, hallPos, Surface);
+                GoblinKingBoss.SpawnWaveBossAndEndlessScaling(WaveIndex, hallPos, Surface);
+                FlyingThreatUnit.SpawnForWave(WaveIndex);
+                SiegeCatapultUnit.SpawnForWave(WaveIndex);
+            }
             if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.WaveStart);
             ProceduralAudio.Fire(Sfx.Horn);
             WaveStarted?.Invoke(WaveIndex);
@@ -280,7 +309,9 @@ namespace HoldTheTable
         void OnWaveCleared()
         {
             if (WaveSpawner.Instance != null) WaveSpawner.Instance.StopWave();
-            if (WaveIndex >= WaveCount - 1) { EndGame(true); return; }
+            CivilizationPassives.OnWaveCleared();
+            if (ShockwaveAbility.Instance != null) ShockwaveAbility.Instance.OnWaveCleared();
+            if (!IsEndlessMode && WaveIndex >= WaveCount - 1) { EndGame(true); return; }
             upgradeTimer = UpgradeSafetyTimeout;
             SetPhase(GamePhase.Upgrade);
             if (QuartermasterAgent.Instance != null) QuartermasterAgent.Instance.Begin(OnUpgradeFinished);
@@ -290,8 +321,26 @@ namespace HoldTheTable
         void OnUpgradeFinished()
         {
             if (Phase != GamePhase.Upgrade) return;
-            WaveIndex = Mathf.Min(WaveIndex + 1, WaveCount - 1);
+            WaveIndex = IsEndlessMode ? WaveIndex + 1 : Mathf.Min(WaveIndex + 1, WaveCount - 1);
             EnterBuildPhase();
+        }
+
+        public void OnEndlessSiegeRequested()
+        {
+            if (Hall == null || (Hall.health != null && Hall.health.IsDead)) return;
+            IsEndlessMode = true;
+            WaveIndex++;
+            upgradeTimer = UpgradeSafetyTimeout;
+            SetPhase(GamePhase.Upgrade);
+            if (EndScreen.Instance != null) EndScreen.Instance.Hide();
+            if (QuartermasterAgent.Instance != null) QuartermasterAgent.Instance.Begin(OnUpgradeFinished);
+            else OnUpgradeFinished();
+        }
+
+        void OnResourceRefundRequested(int timberRefund, int goldRefund)
+        {
+            if (timberRefund > 0) Timber += timberRefund;
+            if (goldRefund > 0) { Gold += goldRefund; RaiseGoldChanged(true); }
         }
 
         void OnHallDied(Health h)
@@ -308,7 +357,7 @@ namespace HoldTheTable
             SetPhase(victory ? GamePhase.Victory : GamePhase.Defeat);
             if (!victory) MonsterUnit.DespawnAll();
             if (ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(victory ? Sfx.Victory : Sfx.Defeat);
-            if (EndScreen.Instance != null) EndScreen.Instance.Show(victory, LastScore);
+            if (EndScreen.Instance != null) EndScreen.Instance.Show(victory, LastScore, WaveIndex, IsEndlessMode);
             Debug.Log($"[GameDirector] {(victory ? "VICTORY" : "DEFEAT")} score={LastScore}");
         }
 
@@ -325,6 +374,7 @@ namespace HoldTheTable
             WaveIndex = 0;
             Countdown = 0f;
             LastScore = 0;
+            IsEndlessMode = false;
             if (UpgradeState.Instance != null) UpgradeState.Instance.ResetAll();
             if (ScoreKeeper.Instance != null) ScoreKeeper.Instance.ResetScore();
             if (ShockwaveAbility.Instance != null) ShockwaveAbility.Instance.ResetCharges();
@@ -335,6 +385,11 @@ namespace HoldTheTable
             if (WaveSpawner.Instance != null) WaveSpawner.Instance.StopWave();
             if (QuartermasterAgent.Instance != null) QuartermasterAgent.Instance.Cancel();
             MonsterUnit.DespawnAll();
+            ResourceOutpostNode.ClearAll();
+            if (HandOfGodController.Existing != null) HandOfGodController.Existing.ResetState();
+            GoblinKingBoss.DespawnAll();
+            FlyingThreatUnit.DespawnAll();
+            SiegeCatapultUnit.DespawnAll();
             if (BuildingFactory.Instance != null) BuildingFactory.Instance.ClearUnits();
             if (EndScreen.Instance != null) EndScreen.Instance.Hide();
             if (UpgradeChoice.Instance != null) UpgradeChoice.Instance.Hide();

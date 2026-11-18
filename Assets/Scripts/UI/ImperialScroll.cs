@@ -47,7 +47,7 @@ namespace HoldTheTable
         CanvasGroup pagesGroup;
         RectTransform[] pages;
         Button backButton, nextButton, foundButton, newEmpireButton;
-        TMP_Text nameDisplay, summaryName, summaryCiv, foundedHint;
+        TMP_Text nameDisplay, summaryName, summaryCiv, foundedHint, stepIndicator;
         RawImage summaryBanner;
         Texture2D summaryTex;
         int page;
@@ -183,16 +183,30 @@ namespace HoldTheTable
             rollerTop = BuildRoller("RollerTop", holder, wood, gold);
             rollerBottom = BuildRoller("RollerBottom", holder, wood, gold);
 
-            // red wax seal with embossed ring and cross, hanging below the bottom roller on a ribbon
+            // red wax seal with authentic fluted wax rim, recessed stamp disc and imperial crown/star relief
             seal = new GameObject("WaxSeal").transform;
             seal.SetParent(rollerBottom, false);
             seal.localPosition = new Vector3(0.12f, -0.05f, -0.012f);
-            var ribbon = Prim(PrimitiveType.Cube, "Ribbon", seal, new Vector3(0f, 0.028f, 0.004f), new Vector3(0.012f, 0.05f, 0.002f), Quaternion.identity, new Color(0.75f, 0.12f, 0.1f));
+            var ribbon = Prim(PrimitiveType.Cube, "Ribbon", seal, new Vector3(0f, 0.028f, 0.004f), new Vector3(0.014f, 0.052f, 0.002f), Quaternion.identity, new Color(0.68f, 0.10f, 0.08f));
             ribbon.name = "Ribbon";
-            Prim(PrimitiveType.Cylinder, "SealDisc", seal, Vector3.zero, new Vector3(0.05f, 0.004f, 0.05f), Quaternion.Euler(90f, 0f, 0f), wax);
-            Prim(PrimitiveType.Cylinder, "SealEmboss", seal, new Vector3(0f, 0f, -0.0045f), new Vector3(0.034f, 0.0015f, 0.034f), Quaternion.Euler(90f, 0f, 0f), new Color(0.48f, 0.03f, 0.04f));
-            Prim(PrimitiveType.Cube, "SealCrossA", seal, new Vector3(0f, 0f, -0.006f), new Vector3(0.022f, 0.005f, 0.002f), Quaternion.Euler(0f, 0f, 45f), new Color(0.78f, 0.15f, 0.12f));
-            Prim(PrimitiveType.Cube, "SealCrossB", seal, new Vector3(0f, 0f, -0.006f), new Vector3(0.022f, 0.005f, 0.002f), Quaternion.Euler(0f, 0f, -45f), new Color(0.78f, 0.15f, 0.12f));
+            Prim(PrimitiveType.Cylinder, "SealDisc", seal, Vector3.zero, new Vector3(0.052f, 0.004f, 0.052f), Quaternion.Euler(90f, 0f, 0f), wax);
+            // 8 outer wax squish flutes around perimeter
+            for (int f = 0; f < 8; f++)
+            {
+                float ang = f * (360f / 8f) * Mathf.Deg2Rad;
+                float fx = Mathf.Cos(ang) * 0.024f;
+                float fy = Mathf.Sin(ang) * 0.024f;
+                Prim(PrimitiveType.Sphere, "WaxFlute_" + f, seal, new Vector3(fx, fy, -0.001f), new Vector3(0.012f, 0.012f, 0.005f), Quaternion.identity, wax);
+            }
+            // recessed inner stamp disc
+            Prim(PrimitiveType.Cylinder, "SealEmboss", seal, new Vector3(0f, 0f, -0.0035f), new Vector3(0.036f, 0.002f, 0.036f), Quaternion.Euler(90f, 0f, 0f), new Color(0.44f, 0.04f, 0.04f));
+            // concentric relief ring
+            Prim(PrimitiveType.Cylinder, "SealInnerRing", seal, new Vector3(0f, 0f, -0.0045f), new Vector3(0.026f, 0.0015f, 0.026f), Quaternion.Euler(90f, 0f, 0f), new Color(0.68f, 0.11f, 0.09f));
+            // center imperial crown / fleur relief
+            Prim(PrimitiveType.Cube, "CrownBase", seal, new Vector3(0f, -0.004f, -0.0055f), new Vector3(0.015f, 0.0035f, 0.002f), Quaternion.identity, gold);
+            Prim(PrimitiveType.Cube, "CrownPeakM", seal, new Vector3(0f, 0.002f, -0.0055f), new Vector3(0.004f, 0.010f, 0.002f), Quaternion.identity, gold);
+            Prim(PrimitiveType.Cube, "CrownPeakL", seal, new Vector3(-0.0055f, 0.001f, -0.0055f), new Vector3(0.0035f, 0.007f, 0.002f), Quaternion.Euler(0f, 0f, 15f), gold);
+            Prim(PrimitiveType.Cube, "CrownPeakR", seal, new Vector3(0.0055f, 0.001f, -0.0055f), new Vector3(0.0035f, 0.007f, 0.002f), Quaternion.Euler(0f, 0f, -15f), gold);
 
             // town hall token socket: small gold pedestal to the side of the scroll
             tokenSocket = new GameObject("TokenSocket").transform;
@@ -284,10 +298,10 @@ namespace HoldTheTable
 
         static Texture2D BuildParchmentTexture()
         {
-            const int W = 160, H = 200;
+            const int W = 512, H = 640;
             var tex = new Texture2D(W, H, TextureFormat.RGBA32, false) { name = "ParchmentTex", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
             var px = new Color32[W * H];
-            Color paper = new Color(0.96f, 0.89f, 0.71f), edge = new Color(0.74f, 0.55f, 0.32f), gold = new Color(0.82f, 0.62f, 0.20f);
+            Color paper = new Color(0.95f, 0.90f, 0.77f), edge = new Color(0.70f, 0.54f, 0.33f), gold = new Color(0.80f, 0.63f, 0.25f);
             uint seed = 99991u;
             for (int y = 0; y < H; y++)
             {
@@ -295,25 +309,25 @@ namespace HoldTheTable
                 {
                     float u = x / (float)(W - 1), t = y / (float)(H - 1);
                     float dx = Mathf.Min(u, 1f - u), dy = Mathf.Min(t, 1f - t);
-                    float vign = Mathf.Clamp01(Mathf.Min(dx * 7f, dy * 9f));
+                    float vign = Mathf.Clamp01(Mathf.Min(dx * 8f, dy * 10f));
                     seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5;
-                    float n = ((seed & 0xFF) / 255f - 0.5f) * 0.05f;
-                    float fiber = Mathf.Sin(t * 140f + Mathf.Sin(u * 13f) * 3f) * 0.012f;
+                    float n = ((seed & 0xFF) / 255f - 0.5f) * 0.04f;
+                    float fiber = Mathf.Sin(t * 320f + Mathf.Sin(u * 28f) * 4f) * 0.010f;
                     Color c = Color.Lerp(edge, paper, Mathf.SmoothStep(0f, 1f, vign));
-                    c.r += n + fiber; c.g += n + fiber; c.b += n * 0.7f;
+                    c.r += n + fiber; c.g += n + fiber; c.b += n * 0.6f;
 
-                    // double gold ornament border
+                    // double gold ornament border with corner flourishes
                     float bx = Mathf.Min(x, W - 1 - x), by = Mathf.Min(y, H - 1 - y);
                     float b = Mathf.Min(bx, by);
-                    bool line1 = b >= 6 && b < 8;
-                    bool line2 = b >= 11 && b < 12;
+                    bool line1 = b >= 16 && b < 22;
+                    bool line2 = b >= 32 && b < 36;
                     // corner diamonds + mid-edge rhombi
-                    bool cornerGem = bx < 22 && by < 22 && Mathf.Abs((bx - 9.5f)) + Mathf.Abs((by - 9.5f)) < 6f;
-                    bool midTop = by < 18 && Mathf.Abs(x - W * 0.5f) + Mathf.Abs(by - 9.5f) < 7f;
-                    bool midSide = bx < 18 && Mathf.Abs(y - H * 0.5f) + Mathf.Abs(bx - 9.5f) < 7f;
-                    if (line1 || line2 || cornerGem || midTop || midSide) c = Color.Lerp(c, gold, 0.9f);
+                    bool cornerGem = bx < 60 && by < 60 && Mathf.Abs(bx - 26f) + Mathf.Abs(by - 26f) < 18f;
+                    bool midTop = by < 46 && Mathf.Abs(x - W * 0.5f) + Mathf.Abs(by - 26f) < 20f;
+                    bool midSide = bx < 46 && Mathf.Abs(y - H * 0.5f) + Mathf.Abs(bx - 26f) < 20f;
+                    if (line1 || line2 || cornerGem || midTop || midSide) c = Color.Lerp(c, gold, 0.92f);
                     // scalloped wave pattern between border lines
-                    if (b >= 8 && b < 11 && Mathf.Sin((bx < by ? y : x) * 0.6f) > 0.6f) c = Color.Lerp(c, gold, 0.55f);
+                    if (b >= 22 && b < 32 && Mathf.Sin((bx < by ? y : x) * 0.25f) > 0.45f) c = Color.Lerp(c, gold, 0.60f);
                     c.a = 1f;
                     px[y * W + x] = c;
                 }
@@ -388,19 +402,23 @@ namespace HoldTheTable
             pagesRoot = UiKit.Rect(root, "ScrollPages", Vector2.zero, new Vector2(800f, 1000f));
             pagesGroup = pagesRoot.gameObject.AddComponent<CanvasGroup>();
 
-            // title band
-            var title = UiKit.Label(pagesRoot, Strings.Title, new Vector2(0f, 455f), new Vector2(760f, 60f), 44);
+            // illuminated title band with royal rubrication and decorative gold rule
+            var title = UiKit.Label(pagesRoot, Strings.Title, new Vector2(0f, 455f), new Vector2(680f, 60f), 42);
             title.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
-            title.color = new Color(0.50f, 0.12f, 0.06f);
-            var sub = UiKit.Label(pagesRoot, Strings.Subtitle, new Vector2(0f, 412f), new Vector2(760f, 34f), 24);
+            title.color = UiKit.RubricCrimson;
+            var sub = UiKit.Label(pagesRoot, Strings.Subtitle, new Vector2(0f, 412f), new Vector2(680f, 34f), 22);
             sub.fontStyle = FontStyles.Italic;
-            var rule = UiKit.Panel(pagesRoot, new Vector2(0f, 390f), new Vector2(640f, 3f), UiKit.Gold);
+            sub.color = UiKit.InkMuted;
+            var rule = UiKit.Panel(pagesRoot, new Vector2(0f, 390f), new Vector2(620f, 2.5f), UiKit.Gold);
             rule.GetComponent<Image>().raycastTarget = false;
+            var centerGem = UiKit.Panel(pagesRoot, new Vector2(0f, 390f), new Vector2(10f, 10f), UiKit.RubricCrimson);
+            centerGem.GetComponent<Image>().raycastTarget = false;
+            centerGem.localRotation = Quaternion.Euler(0f, 0f, 45f);
 
             pages = new RectTransform[4];
             for (int i = 0; i < pages.Length; i++)
             {
-                pages[i] = UiKit.Rect(pagesRoot, "Page" + (i + 1), new Vector2(0f, -15f), new Vector2(800f, 790f));
+                pages[i] = UiKit.Rect(pagesRoot, "Page" + (i + 1), new Vector2(0f, -15f), new Vector2(680f, 790f));
             }
 
             BuildCivPage(pages[0]);
@@ -408,37 +426,42 @@ namespace HoldTheTable
             BuildBannerPage(pages[2]);
             BuildFoundPage(pages[3]);
 
-            backButton = UiKit.Button(pagesRoot, Strings.Back, new Vector2(-260f, -450f), new Vector2(240f, 90f), () => ShowPage(page - 1), 36);
-            nextButton = UiKit.Button(pagesRoot, Strings.Next, new Vector2(260f, -450f), new Vector2(240f, 90f), OnNext, 36);
+            backButton = UiKit.Button(pagesRoot, Strings.Back, new Vector2(-230f, -430f), new Vector2(190f, 72f), () => ShowPage(page - 1), 32);
+            nextButton = UiKit.Button(pagesRoot, Strings.Next, new Vector2(230f, -430f), new Vector2(190f, 72f), OnNext, 32);
+            stepIndicator = UiKit.Label(pagesRoot, "I · II · III · IV", new Vector2(0f, -430f), new Vector2(200f, 40f), 24);
+            stepIndicator.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+
             ShowPage(0);
         }
 
         void BuildCivPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.ChooseCivilization, new Vector2(0f, 360f), new Vector2(760f, 56f), 40);
-            h.fontStyle = FontStyles.Bold;
-            var area = UiKit.Rect(p, "CivCards", new Vector2(0f, -30f), new Vector2(760f, 700f));
+            var h = UiKit.Label(p, Strings.ChooseCivilization, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
+            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            h.color = UiKit.Ink;
+            var area = UiKit.Rect(p, "CivCards", new Vector2(0f, -30f), new Vector2(680f, 700f));
             if (civilizationSelector == null) civilizationSelector = area.gameObject.AddComponent<CivilizationSelector>();
             civilizationSelector.Build(area);
         }
 
         void BuildNamePage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.NameYourEmpire, new Vector2(0f, 360f), new Vector2(760f, 56f), 40);
-            h.fontStyle = FontStyles.Bold;
-            var field = UiKit.Panel(p, new Vector2(0f, 250f), new Vector2(740f, 110f), new Color(1f, 0.97f, 0.88f, 1f));
-            field.GetComponent<Image>().raycastTarget = false;
-            var ol = field.gameObject.AddComponent<Outline>();
-            ol.effectColor = UiKit.Gold;
-            ol.effectDistance = new Vector2(4f, -4f);
-            nameDisplay = UiKit.Label(field, string.Empty, Vector2.zero, new Vector2(710f, 100f), 52);
+            var h = UiKit.Label(p, Strings.NameYourEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
+            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            h.color = UiKit.Ink;
+
+            var field = UiKit.FramedPanel(p, "NameField", new Vector2(0f, 250f), new Vector2(680f, 100f),
+                UiKit.WalnutFrame, UiKit.ParchmentLight, UiKit.Gold, 4f, true);
+            nameDisplay = UiKit.Label(field, string.Empty, Vector2.zero, new Vector2(640f, 90f), 48);
             nameDisplay.textWrappingMode = TextWrappingModes.NoWrap;
             nameDisplay.overflowMode = TextOverflowModes.Overflow;
             nameDisplay.enableAutoSizing = true;
-            nameDisplay.fontSizeMin = 26;
-            nameDisplay.fontSizeMax = 52;
+            nameDisplay.fontSizeMin = 24;
+            nameDisplay.fontSizeMax = 48;
+            nameDisplay.fontStyle = FontStyles.Bold;
+            nameDisplay.color = UiKit.Ink;
 
-            var area = UiKit.Rect(p, "Keyboard", new Vector2(0f, -110f), new Vector2(800f, 380f));
+            var area = UiKit.Rect(p, "Keyboard", new Vector2(0f, -110f), new Vector2(680f, 380f));
             if (keyboard == null) keyboard = area.gameObject.AddComponent<HandPokeKeyboard>();
             keyboard.Build(area, nameDisplay);
             keyboard.SetText(CivilizationProfile.Current.empireName);
@@ -450,8 +473,8 @@ namespace HoldTheTable
             {
                 systemKeyboard = gameObject.AddComponent<SystemKeyboardInput>();
                 area.gameObject.SetActive(false);
-                UiKit.Button(p, Strings.TypeName, new Vector2(0f, 60f), new Vector2(600f, 130f), OpenSystemKeyboard, 40);
-                UiKit.Button(p, Strings.Confirm, new Vector2(0f, -120f), new Vector2(360f, 110f), () => { systemKeyboard.Close(); CommitName(); ShowPage(2); }, 40);
+                UiKit.Button(p, Strings.TypeName, new Vector2(0f, 60f), new Vector2(560f, 120f), OpenSystemKeyboard, 38);
+                UiKit.Button(p, Strings.Confirm, new Vector2(0f, -120f), new Vector2(340f, 100f), () => { systemKeyboard.Close(); CommitName(); ShowPage(2); }, 38);
             }
         }
 
@@ -468,12 +491,11 @@ namespace HoldTheTable
 
         void BuildBannerPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.BannerTitle, new Vector2(0f, 360f), new Vector2(760f, 56f), 40);
-            h.fontStyle = FontStyles.Bold;
-            var panel = UiKit.Rect(p, "BannerPanel", new Vector2(0f, -35f), new Vector2(790f, 700f));
+            var h = UiKit.Label(p, Strings.BannerTitle, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
+            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            h.color = UiKit.Ink;
+            var panel = UiKit.Rect(p, "BannerPanel", new Vector2(0f, -35f), new Vector2(680f, 700f));
             bannerPanel = panel;
-            // the drawing logic lives on a sibling (NOT an ancestor of the buttons): an ancestor IDragHandler would
-            // capture drags that start on swatch/tool buttons and cancel their poke clicks. E adds a pad forwarder.
             if (drawingCanvas == null)
             {
                 var logic = UiKit.Rect(p, "EmblemDrawingLogic", Vector2.zero, Vector2.zero);
@@ -481,36 +503,43 @@ namespace HoldTheTable
             }
             if (bannerCustomizer == null) bannerCustomizer = panel.gameObject.AddComponent<BannerCustomizer>();
             bannerCustomizer.Build(panel, drawingCanvas);
-            if (!drawingCanvas.IsBuilt)
-            {
-                var area = UiKit.Rect(panel, "EmblemArea", new Vector2(-120f, 0f), new Vector2(480f, 330f));
-                drawingCanvas.Build(area);
-            }
             bannerCustomizer.Confirmed += () => ShowPage(3);
         }
 
         void BuildFoundPage(RectTransform p)
         {
-            var h = UiKit.Label(p, Strings.FoundEmpire, new Vector2(0f, 360f), new Vector2(760f, 56f), 40);
-            h.fontStyle = FontStyles.Bold;
-            summaryName = UiKit.Label(p, string.Empty, new Vector2(0f, 280f), new Vector2(760f, 80f), 56);
-            summaryName.fontStyle = FontStyles.Bold;
-            summaryName.color = new Color(0.45f, 0.10f, 0.05f);
-            summaryCiv = UiKit.Label(p, string.Empty, new Vector2(0f, 220f), new Vector2(760f, 44f), 30);
+            var h = UiKit.Label(p, Strings.FoundEmpire, new Vector2(0f, 360f), new Vector2(680f, 56f), 38);
+            h.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            h.color = UiKit.Ink;
 
-            // banner preview on a little pole
-            var pole = UiKit.Panel(p, new Vector2(-185f, 20f), new Vector2(12f, 300f), new Color(0.36f, 0.22f, 0.10f, 1f));
-            pole.GetComponent<Image>().raycastTarget = false;
-            var finial = UiKit.Panel(p, new Vector2(-185f, 176f), new Vector2(24f, 24f), UiKit.Gold);
-            finial.GetComponent<Image>().raycastTarget = false;
-            summaryBanner = UiKit.RawImage(p, new Vector2(-5f, 45f), new Vector2(348f, 240f), null);
+            summaryName = UiKit.Label(p, string.Empty, new Vector2(0f, 285f), new Vector2(680f, 66f), 50);
+            summaryName.fontStyle = FontStyles.Bold | FontStyles.SmallCaps;
+            summaryName.color = UiKit.RubricCrimson;
+            summaryCiv = UiKit.Label(p, string.Empty, new Vector2(0f, 230f), new Vector2(680f, 40f), 26);
+            summaryCiv.fontStyle = FontStyles.Italic;
+            summaryCiv.color = UiKit.InkMuted;
 
-            foundButton = UiKit.Button(p, Strings.FoundEmpire, new Vector2(0f, -200f), new Vector2(520f, 140f), OnFound, 52);
-            UiKit.SetButtonColor(foundButton, new Color(0.55f, 0.10f, 0.08f, 1f));
+            // Framed heraldic standard display with carved walnut backing and antique brass crossbar & finials
+            var backing = UiKit.FramedPanel(p, "StandardBacking", new Vector2(0f, 50f), new Vector2(376f, 260f),
+                UiKit.WalnutFrame, UiKit.ParchmentShade, UiKit.Gold, 4f, true);
 
-            foundedHint = UiKit.Label(p, Strings.PlaceTownHallHint, new Vector2(0f, -150f), new Vector2(720f, 110f), 32);
-            newEmpireButton = UiKit.Button(p, Strings.NewEmpire, new Vector2(0f, -300f), new Vector2(380f, 100f), OnNewEmpire, 40);
-            UiKit.SetButtonColor(newEmpireButton, new Color(0.30f, 0.22f, 0.14f, 1f));
+            var bar = UiKit.Panel(p, new Vector2(0f, 175f), new Vector2(364f, 10f), UiKit.WalnutFrame);
+            bar.name = "Crossbar";
+            bar.GetComponent<Image>().raycastTarget = false;
+            var finL = UiKit.Panel(p, new Vector2(-184f, 175f), new Vector2(16f, 16f), UiKit.Gold);
+            finL.GetComponent<Image>().raycastTarget = false;
+            var finR = UiKit.Panel(p, new Vector2(184f, 175f), new Vector2(16f, 16f), UiKit.Gold);
+            finR.GetComponent<Image>().raycastTarget = false;
+
+            summaryBanner = UiKit.RawImage(p, new Vector2(0f, 50f), new Vector2(348f, 240f), null);
+
+            foundButton = UiKit.Button(p, Strings.FoundEmpire, new Vector2(0f, -170f), new Vector2(440f, 96f), OnFound, 44);
+            UiKit.SetButtonColor(foundButton, UiKit.ButtonColor);
+
+            foundedHint = UiKit.Label(p, Strings.PlaceTownHallHint, new Vector2(0f, -135f), new Vector2(660f, 80f), 30);
+            foundedHint.color = UiKit.Ink;
+            newEmpireButton = UiKit.Button(p, Strings.NewEmpire, new Vector2(0f, -235f), new Vector2(360f, 76f), OnNewEmpire, 36);
+            UiKit.SetButtonColor(newEmpireButton, UiKit.OakMid);
         }
 
         void CommitName()
@@ -536,6 +565,19 @@ namespace HoldTheTable
             page = Mathf.Clamp(index, 0, pages.Length - 1);
             if (page != prev && IsOpen && ProceduralAudio.Instance != null) ProceduralAudio.Instance.Play(Sfx.PageTurn, transform.position);
             for (int i = 0; i < pages.Length; i++) pages[i].gameObject.SetActive(i == page);
+
+            if (stepIndicator != null)
+            {
+                string[] numerals = { "I", "II", "III", "IV" };
+                var sb = new System.Text.StringBuilder(64);
+                for (int s = 0; s < numerals.Length; s++)
+                {
+                    if (s > 0) sb.Append("  ·  ");
+                    if (s == page) sb.Append("<color=#7A1C17><b>[").Append(numerals[s]).Append("]</b></color>");
+                    else sb.Append("<color=#594230>").Append(numerals[s]).Append("</color>");
+                }
+                stepIndicator.text = sb.ToString();
+            }
 
             if (page == 0 && civilizationSelector != null) civilizationSelector.Refresh();
             if (page == 1 && keyboard != null) keyboard.SetText(CivilizationProfile.Current.empireName);

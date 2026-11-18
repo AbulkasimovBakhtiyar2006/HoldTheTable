@@ -1,3 +1,4 @@
+#pragma warning disable CS0619
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -241,7 +242,7 @@ namespace HoldTheTable
         {
             target = null;
             if (instance == null || tower == null || !instance.IsFocusTargetValid()) return false;
-            int id = tower.GetInstanceID();
+            int id = tower.GetHashCode();
             if (!instance.pendingVolleyTowers.Remove(id)) return false;
             target = instance.focusedTarget;
             return true;
@@ -529,7 +530,8 @@ namespace HoldTheTable
                 }
                 else
                 {
-                    bool stillTracked = rig.IsTracked(heldSide) && rig.TryGetIndexTip(heldSide, out var tipNow);
+                    Vector3 tipNow = Vector3.zero;
+                    bool stillTracked = rig.IsTracked(heldSide) && rig.TryGetIndexTip(heldSide, out tipNow);
                     bool stillPinching = stillTracked && rig.IsPinching(heldSide);
                     bool timedOut = Time.time - heldStartTime >= maxHoldDuration;
 
@@ -1036,7 +1038,7 @@ namespace HoldTheTable
                 float effRange = u.def.range * Mathf.Max(1f, focusRangeBonusMul);
                 if ((u.transform.position - targetPos).sqrMagnitude <= effRange * effRange)
                 {
-                    pendingVolleyTowers.Add(u.GetInstanceID());
+                    pendingVolleyTowers.Add(u.GetHashCode());
                     queued++;
                 }
             }
@@ -1065,7 +1067,7 @@ namespace HoldTheTable
                 var u = units[i];
                 if (u == null || u.type != UnitType.ArcherTower || u.def == null || u.health == null || u.health.IsDead)
                     continue;
-                if (!pendingVolleyTowers.Remove(u.GetInstanceID()))
+                if (!pendingVolleyTowers.Remove(u.GetHashCode()))
                     continue;
 
                 Vector3 origin = u.muzzle != null ? u.muzzle.position : u.transform.position + Vector3.up * 0.09f;

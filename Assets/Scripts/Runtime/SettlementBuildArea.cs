@@ -10,6 +10,7 @@ namespace HoldTheTable
     public class SettlementBuildArea : MonoBehaviour
     {
         public const int MaxDefenses = 12;
+        public static int EffectiveMaxDefenses => TownHall.CurrentBuildingCap;
         /// <summary>Separate limit for economy buildings (Farm, Mine); they do not count toward MaxDefenses.</summary>
         public const int MaxEconomy = 8;
         public const float CenterRadius = 0.45f;
@@ -181,7 +182,7 @@ namespace HoldTheTable
             reasonKey = null;
             if (!founded || surface == null) { reasonKey = Strings.PlacementInvalidOutside; return false; }
             Sync();
-            if (economy ? CountFootprints(true) >= MaxEconomy : CountFootprints(false) >= MaxDefenses)
+            if (economy ? CountFootprints(true) >= MaxEconomy : CountFootprints(false) >= EffectiveMaxDefenses)
             { reasonKey = Strings.PlacementInvalidLimit; return false; }
 
             Vector3 pp = surface.ProjectOnto(p);
